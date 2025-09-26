@@ -11,14 +11,7 @@ if (BCRYPT_ROUNDS < 10) {
   console.warn(`Warning: BCRYPT_ROUNDS is set to ${BCRYPT_ROUNDS}. Consider using >= 10 for production.`);
 }
 
-/**
- * User schema
- * - username: unique identifier for login
- * - passwordHash: the hashed password (do NOT store plain password)
- * - hashAlgo: metadata describing which algorithm produced the hash (useful for migrations)
- * - role: simple RBAC indicator (expand as needed)
- * - timestamps: createdAt and updatedAt (automatically maintained by mongoose)
- */
+
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true, unique: true },
