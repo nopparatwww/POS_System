@@ -38,8 +38,9 @@ router.post("/login", async (req, res) => {
 
     const payload = { userId: user._id, role: user.role, username: user.username };
 
-    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: process.env.JWT_EXPIRES_IN || "1h" });
-    res.json({ token });
+  const token = jwt.sign(payload, SECRET_KEY, { expiresIn: process.env.JWT_EXPIRES_IN || "1h" });
+  // return token and include role/user so frontend can use them without decoding JWT
+  res.json({ token, role: user.role, user: { username: user.username, role: user.role } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
