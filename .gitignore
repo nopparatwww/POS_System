@@ -40,3 +40,4 @@ coverage-final.json
 # Lock files (commit at your discretion)
 # package-lock.json
 # yarn.lock
+\n# Nested repo backup\nPOS_System/.git.bak_*
