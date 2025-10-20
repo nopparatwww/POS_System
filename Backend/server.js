@@ -10,6 +10,7 @@ require("./config/db");
 // Route modules
 const apiAuthRoutes = require("./routes/apiAuthRoutes");
 const apiProtectRoutes = require("./routes/apiProtectRoutes");
+const apiPermissionRoutes = require("./routes/apiPermissionRoutes");
 const apiPublicRoutes = require("./routes/apiPublicRoutes");
 
 const app = express();
@@ -33,6 +34,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", apiAuthRoutes);
 app.use("/api/public", apiPublicRoutes);
 app.use("/api/protect", apiProtectRoutes);
+app.use("/api/permissions", apiPermissionRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;

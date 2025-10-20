@@ -29,6 +29,7 @@ import Admin from "./pages/Admin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminPermissions from "./pages/admin/Permissions";
+import UserPermission from "./pages/admin/UserPermission";
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="permissions" element={<AdminPermissions />} />
+            <Route path="permissions/:username" element={<UserPermission />} />
           </Route>
         </Routes>
       </main>

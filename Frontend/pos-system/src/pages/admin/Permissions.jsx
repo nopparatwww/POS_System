@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // Inline SVG icons
 function IconSearch({ size = 20, color = '#0b1b2b' }) {
@@ -20,6 +21,7 @@ function IconPencil({ size = 18, color = '#fff' }) {
 }
 
 export default function Permissions() {
+  const navigate = useNavigate()
   // Mock data to render the list visually
   const MOCK_USERS = useMemo(() => {
     const rows = []
@@ -83,7 +85,7 @@ export default function Permissions() {
   }
 
   function onEdit(row) {
-    alert(`Edit user: ${row.username} (placeholder)`) // later can navigate to a detail page
+    navigate(`/admin/permissions/${row.username}`)
   }
 
   return (

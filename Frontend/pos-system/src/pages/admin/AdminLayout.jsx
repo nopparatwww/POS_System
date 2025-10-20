@@ -18,8 +18,8 @@ export default function AdminLayout(){
         <TopBar />
   {/* TopBar provides the inline user badge */}
 
-        {/* Centered child content */}
-        <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto', paddingTop: 24 }}>
+        {/* Child content (full width) */}
+        <div style={{ width: '100%', maxWidth: 'none', margin: 0, paddingTop: 24 }}>
           <Outlet />
         </div>
       </main>
