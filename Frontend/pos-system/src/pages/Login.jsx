@@ -20,13 +20,13 @@
   - username, password
 
   Outputs (side-effects):
-  - localStorage updated, an alert shown, navigate to `/role`.
+  - localStorage updated, navigate to role-based home (e.g., /admin, /sales, /warehouse).
 
   Edge cases handled:
   - Missing token from API (throws an error)
   - Role not returned by the API — try decode; if still missing, clear `role` mapping to avoid mismatch.
 */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { setAuthToken } from '../utils/auth'
@@ -48,8 +48,16 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [isNarrow, setIsNarrow] = useState(false)
 
   const API_BASE = import.meta.env.VITE_API_URL || ''
+
+  useEffect(() => {
+    function onResize(){ setIsNarrow(window.innerWidth < 900) }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -106,9 +114,17 @@ export default function Login() {
 
   // Login response received (sensitive data suppressed from console)
 
-      // Inform the user which role they logged in as, then redirect to RoleSelect
-      alert(`Logged in as role: ${serverRole || 'Unknown'}`)
-      navigate('/role')
+      // Redirect directly to role-based landing page
+      const SERVER_TO_PATH = {
+        admin: '/admin',
+        cashier: '/sales',
+        sales: '/sales',
+        warehouse: '/warehouse',
+        manager: '/warehouse',
+        owner: '/admin'
+      }
+      const goTo = SERVER_TO_PATH[serverRole] || '/admin'
+      navigate(goTo)
     } catch (err) {
       console.error(err)
       if (err?.response) setError(err.response?.data?.message || 'Server error')
@@ -120,9 +136,9 @@ export default function Login() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center' }}>
-      <div style={{ flex: '1 1 50%', background: 'linear-gradient(180deg,#34d399,#10b981)' }} />
-      <div style={{ flex: '1 1 50%', padding: '3rem' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'stretch', flexDirection: isNarrow ? 'column' : 'row' }}>
+      {!isNarrow && <div style={{ flex: '1 1 50%', background: 'linear-gradient(180deg,#34d399,#10b981)' }} />}
+      <div style={{ flex: '1 1 50%', padding: isNarrow ? '1.5rem' : '3rem' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Login</h1>
         <p style={{ color: '#6b7280', marginBottom: '1.25rem' }}>Login to access your account</p>
 

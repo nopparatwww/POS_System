@@ -21,13 +21,13 @@ import LogoutButton from "../components/LogoutButton";
 import TopBar from "../components/TopBar";
 
 const rolesStyles = `
-.pg-roles { background: #f0fdf4; min-height: 100vh; padding: 2rem; box-sizing: border-box; }
-.pg-roles .header-row { width: 100%; max-width: 1100px; margin: 0 auto 1rem; display:flex; justify-content:space-between; align-items:center; }
-.pg-roles h1.role-title { font-size: 56px; font-weight: 300; color:#0f172a; margin:24px 0 40px; }
-.pg-roles .cards-row { max-width:1100px; margin:0 auto; display:flex; gap:48px; justify-content:center; flex-wrap:wrap; }
+.pg-roles { background: #f0fdf4; min-height: 100vh; padding: clamp(1rem, 4vw, 2rem); box-sizing: border-box; }
+.pg-roles .header-row { width: 100%; max-width: 1100px; margin: 0 auto 1rem; display:flex; justify-content:space-between; align-items:center; gap: 12px; flex-wrap: wrap; }
+.pg-roles h1.role-title { font-size: clamp(28px, 5vw, 56px); font-weight: 300; color:#0f172a; margin:24px 0 24px; }
+.pg-roles .cards-row { max-width:1100px; margin:0 auto; display:flex; gap:24px; justify-content:center; flex-wrap:wrap; }
 .pg-roles .card-wrap { display:flex; flex-direction:column; align-items:center; }
-.pg-roles .card { width:240px; height:240px; min-width:200px; min-height:200px; border-radius:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: transform 150ms ease; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
-.pg-roles .card-label { margin-top:16px; font-size:20px; color:#0f172a; }
+.pg-roles .card { width: clamp(180px, 28vw, 240px); height: clamp(180px, 28vw, 240px); min-width:160px; min-height:160px; border-radius:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition: transform 150ms ease; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+.pg-roles .card-label { margin-top:12px; font-size:18px; color:#0f172a; }
 .pg-roles .card.selected { transform: scale(1.05); background-color: #059669; }
 .pg-roles .card:not(.selected) { background-color: #34d399; }
 `

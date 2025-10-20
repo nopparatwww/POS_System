@@ -1,11 +1,59 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import axios from 'axios'
 import { Link } from "react-router-dom";
 import LogoutButton from "./LogoutButton";
 
 // Left vertical NavBar with menu links.
-export default function NavBar({ username, serverRole, showLinks = true, mode = 'admin' }) {
+export default function NavBar({ username, serverRole, showLinks = true, mode = 'admin', horizontal = false }) {
   const uname = username ?? localStorage.getItem("username") ?? "username account";
   const role = serverRole ?? localStorage.getItem("server_role") ?? "Role";
+  const API_BASE = import.meta.env.VITE_API_URL || ''
+
+  const [perm, setPerm] = useState({ allowRoutes: [], denyRoutes: [], role })
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    async function load() {
+      setLoading(true)
+      try {
+        const res = await axios.get(`${API_BASE}/api/permissions/me`)
+        if (!mounted) return
+        setPerm({
+          role: res.data?.role,
+          allowRoutes: res.data?.allowRoutes || [],
+          denyRoutes: res.data?.denyRoutes || [],
+        })
+      } catch (e) {
+        // silently ignore; fallback to role-only
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    load()
+    return () => { mounted = false }
+  }, [API_BASE])
+
+  const isAllowed = useMemo(() => {
+    const roleBaseline = {
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+      cashier: ['sales.home'],
+      warehouse: ['warehouse.home'],
+    }
+    const allow = perm.allowRoutes || []
+    const deny = perm.denyRoutes || []
+    const base = roleBaseline[perm.role] || []
+    return (key) => {
+      let can
+      if (allow.length > 0) {
+        can = allow.includes(key)
+      } else {
+        can = base.includes(key)
+      }
+      if (deny.includes(key)) can = false
+      return can
+    }
+  }, [perm])
 
   // small helper to render menu links with hover effect
   function MenuLink({ to, children }) {
@@ -31,79 +79,72 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     );
   }
 
+  const asideStyle = horizontal ? {
+    width: '100%',
+    background: '#0f172a',
+    color: '#fff',
+    minHeight: 0,
+    boxSizing: 'border-box',
+    paddingTop: 8,
+    display: 'flex',
+    flexDirection: 'column'
+  } : {
+    width: 220,
+    background: '#0f172a',
+    color: '#fff',
+    minHeight: '100vh',
+    boxSizing: 'border-box',
+    paddingTop: 20,
+    display: 'flex',
+    flexDirection: 'column'
+  }
+
   return (
-    <aside
-      style={{
-        width: 220,
-        background: "#0f172a",
-        color: "#fff",
-        minHeight: "100vh",
-        boxSizing: "border-box",
-        paddingTop: 20,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <aside style={asideStyle}>
       <div
         style={{
-          padding: "12px 16px",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
+          padding: '12px 16px',
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
         }}
       >
         <div style={{ fontWeight: 800, fontSize: 16 }}>POS System</div>
-        <div style={{ fontSize: 12, color: "#94a3b8" }}>{role}</div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>{role}</div>
       </div>
 
       <div style={{ padding: 12 }}>
-        <button
-          onClick={() => (window.location.href = "/role")}
-          style={{
-            width: "100%",
-            padding: "8px 10px",
-            borderRadius: 6,
-            border: "none",
-            background: "#111827",
-            color: "#fff",
-            cursor: "pointer",
-            marginBottom: 12,
-          }}
-        >
-          ← Back to Roles
-        </button>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <nav style={{ display: 'flex', flexDirection: horizontal ? 'row' : 'column', gap: 6, flexWrap: 'wrap' }}>
           {/* Render links based on mode: admin, sales, warehouse */}
           {mode === 'admin' && (
             <>
-              <MenuLink to="/admin/dashboard">Dashboard</MenuLink>
-              <MenuLink to="/admin/permissions">Permissions</MenuLink>
+              {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
+              {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
+              {isAllowed('admin.logs') && <MenuLink to="/admin/logs">Logs</MenuLink>}
             </>
           )}
 
           {mode === 'sales' && (
             <>
-              <MenuLink to="/sales">Sales Home</MenuLink>
+              {isAllowed('sales.home') && <MenuLink to="/sales">Sales Home</MenuLink>}
               {/* add sales-specific quick links here if needed */}
             </>
           )}
 
           {mode === 'warehouse' && (
             <>
-              <MenuLink to="/warehouse">Warehouse Home</MenuLink>
+              {isAllowed('warehouse.home') && <MenuLink to="/warehouse">Warehouse Home</MenuLink>}
               {/* add warehouse-specific quick links here if needed */}
             </>
           )}
         </nav>
       </div>
 
-      <div
-        style={{
-          marginTop: "auto",
+      <div style={{
+          marginTop: 'auto',
           padding: 12,
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
+          borderTop: '1px solid rgba(255,255,255,0.04)',
+          display: 'flex',
+          justifyContent: horizontal ? 'flex-start' : 'center'
+        }}>
         <LogoutButton
           style={{
             backgroundColor: "#DC2626",

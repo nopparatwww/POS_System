@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 
 // Inline SVG icons
@@ -22,17 +23,14 @@ function IconPencil({ size = 18, color = '#fff' }) {
 
 export default function Permissions() {
   const navigate = useNavigate()
-  // Mock data to render the list visually
-  const MOCK_USERS = useMemo(() => {
-    const rows = []
-    for (let i = 0; i < 10; i++) {
-      rows.push({ id: 'xxxxxxxxxx', username: 'alice', role: 'admin', created: 'create_date', updated: 'update_date' })
-    }
-    return rows
-  }, [])
+  const API_BASE = import.meta.env.VITE_API_URL || ''
 
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [isNarrow, setIsNarrow] = useState(false)
 
   useEffect(() => {
@@ -45,14 +43,31 @@ export default function Permissions() {
   }, [])
   const pageSize = 10
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return MOCK_USERS
-    return MOCK_USERS.filter(u => u.username.toLowerCase().includes(q))
-  }, [query, MOCK_USERS])
+  useEffect(() => {
+    let mounted = true
+    async function fetchUsers() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await axios.get(`${API_BASE}/api/protect/users`, {
+          params: { page, limit: pageSize, query }
+        })
+        if (!mounted) return
+        setItems(res.data?.items || [])
+        setTotal(res.data?.total || 0)
+      } catch (e) {
+        if (!mounted) return
+        setError(e?.response?.data?.message || e.message)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+    fetchUsers()
+    return () => { mounted = false }
+  }, [API_BASE, page, query])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const current = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize))
+  const current = items
 
   // Inline styles to match the provided mock and adapt to viewport
   const styles = {
@@ -81,7 +96,7 @@ export default function Permissions() {
   }
 
   function onCreate() {
-    alert('Create user (placeholder)')
+    navigate('/admin/permissions/create')
   }
 
   function onEdit(row) {
@@ -131,13 +146,22 @@ export default function Permissions() {
               </tr>
             </thead>
             <tbody>
-              {current.map((row, idx) => (
-                <tr key={idx}>
-                  <td style={styles.td}>{row.id}</td>
+              {loading && (
+                <tr><td colSpan={6} style={styles.td}>Loading…</td></tr>
+              )}
+              {error && !loading && (
+                <tr><td colSpan={6} style={{ ...styles.td, color: '#dc2626' }}>{error}</td></tr>
+              )}
+              {!loading && !error && current.length === 0 && (
+                <tr><td colSpan={6} style={styles.td}>No data</td></tr>
+              )}
+              {!loading && !error && current.map((row, idx) => (
+                <tr key={row._id || idx}>
+                  <td style={styles.td}>{row._id ? String(row._id).slice(-10) : '—'}</td>
                   <td style={styles.td}>{row.username}</td>
                   <td style={styles.td}>{row.role}</td>
-                  <td style={styles.td}>{row.created}</td>
-                  <td style={styles.td}>{row.updated}</td>
+                  <td style={styles.td}>{row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}</td>
+                  <td style={styles.td}>{row.updatedAt ? new Date(row.updatedAt).toLocaleString() : '—'}</td>
                   <td style={styles.tdCenter}>
                     <button onClick={() => onEdit(row)} style={styles.editBtn} aria-label="Edit">
                       <IconPencil />

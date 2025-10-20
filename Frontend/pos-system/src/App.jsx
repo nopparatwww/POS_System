@@ -7,7 +7,7 @@
 
   Routes:
   - `/`         -> Login page (public)
-  - `/role`     -> Role selection UI (protected)
+  - Role-based landing after login (no RoleSelect screen)
   - `/warehouse`-> Warehouse/settings page (protected)
   - `/sales`    -> Sales dashboard (protected)
   - `/admin`    -> Admin dashboard (protected)
@@ -19,7 +19,6 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import RoleSelect from "./pages/RoleSelect";
 import ProtectedRoute from "./components/ProtectedRoute";
 // previous: import Home from "./pages/Home";
 import Warehouse from "./pages/Warehouse";
@@ -30,6 +29,8 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminPermissions from "./pages/admin/Permissions";
 import UserPermission from "./pages/admin/UserPermission";
+import CreateUser from "./pages/admin/CreateUser";
+import AdminLogs from "./pages/admin/Logs";
 
 export default function App() {
   return (
@@ -37,14 +38,16 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/role" element={<ProtectedRoute><RoleSelect /></ProtectedRoute>} />
+          {/* RoleSelect removed: users go directly to their role's home */}
           <Route path="/warehouse" element={<ProtectedRoute><Warehouse /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="permissions" element={<AdminPermissions />} />
+            <Route path="permissions/create" element={<CreateUser />} />
             <Route path="permissions/:username" element={<UserPermission />} />
+            <Route path="logs" element={<AdminLogs />} />
           </Route>
         </Routes>
       </main>

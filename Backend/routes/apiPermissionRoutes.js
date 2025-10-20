@@ -2,14 +2,17 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
 const ensureAdmin = require('../middleware/ensureAdmin');
+const ensurePermission = require('../middleware/ensurePermission');
 const User = require('../models/user');
 const Permission = require('../models/permission');
+const ActivityLog = require('../models/activityLog');
 
 // Map pathname to a route key. Adjust this mapping to your frontend routes.
 // Example keys: 'admin.dashboard', 'admin.permissions', 'sales.home', 'warehouse.home'
 const PATH_TO_KEY = [
   { path: /^\/admin\/dashboard$/, key: 'admin.dashboard' },
   { path: /^\/admin\/permissions(?:\/.*)?$/, key: 'admin.permissions' },
+  { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
@@ -28,7 +31,15 @@ router.get('/me', authenticateToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const perm = await Permission.findOne({ user: user._id }).lean();
-    const allowRoutes = perm?.allowRoutes || [];
+    // baseline by role used as default when no explicit permissions set
+    const roleBaseline = {
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+      cashier: ['sales.home'],
+      warehouse: ['warehouse.home'],
+    };
+    const allowRoutes = (perm?.allowRoutes && perm.allowRoutes.length > 0)
+      ? perm.allowRoutes
+      : (roleBaseline[user.role] || []);
     const denyRoutes = perm?.denyRoutes || [];
 
     res.json({ username: user.username, role: user.role, allowRoutes, denyRoutes });
@@ -39,7 +50,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // Admin: Get permissions for a username
-router.get('/:username', authenticateToken, ensureAdmin, async (req, res) => {
+router.get('/:username', authenticateToken, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username }).lean();
@@ -60,7 +71,7 @@ router.get('/:username', authenticateToken, ensureAdmin, async (req, res) => {
 });
 
 // Admin: Update permissions for a username
-router.put('/:username', authenticateToken, ensureAdmin, async (req, res) => {
+router.put('/:username', authenticateToken, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
   try {
     const { username } = req.params;
     const { allowRoutes = [], denyRoutes = [], notes } = req.body || {};
@@ -79,6 +90,20 @@ router.put('/:username', authenticateToken, ensureAdmin, async (req, res) => {
       },
       { new: true, upsert: true }
     );
+
+    // log action
+    try {
+      await ActivityLog.create({
+        action: 'permissions.update',
+        actorUsername: req.user?.username || 'unknown',
+        actorRole: req.user?.role || 'unknown',
+        targetUsername: username,
+        method: req.method,
+        path: req.originalUrl,
+        status: 200,
+        details: { allowRoutes: doc.allowRoutes, denyRoutes: doc.denyRoutes }
+      })
+    } catch (e) { /* ignore */ }
 
     res.json({
       username: user.username,
@@ -109,14 +134,20 @@ router.post('/check', authenticateToken, async (req, res) => {
 
     // baseline by role: admins can access admin routes, sales to sales, etc.
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions'],
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     };
 
-    let allowed = (roleBaseline[me.role] || []).includes(key);
-    if (allowRoutes.includes(key)) allowed = true;
-    if (denyRoutes.includes(key)) allowed = false;
+    let allowed;
+    if (allowRoutes.length > 0) {
+      // Explicit allow list present: only allowed when listed
+      allowed = allowRoutes.includes(key);
+    } else {
+      // No explicit allow list: fall back to role baseline
+      allowed = (roleBaseline[me.role] || []).includes(key);
+    }
+    if (denyRoutes.includes(key)) allowed = false; // deny still overrides
 
     res.json({ allowed, key, role: me.role, allowRoutes, denyRoutes });
   } catch (e) {
