@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "db:reset": "node ./scripts/reset.js",
+    "db:seed": "node ./scripts/seed.js",
+    "db:reseed": "npm run db:reset --silent && npm run db:seed --silent"
   },
   "keywords": [],
   "author": "",

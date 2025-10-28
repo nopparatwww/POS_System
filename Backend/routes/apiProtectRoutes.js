@@ -29,7 +29,7 @@ router.get('/users', authenticateToken, ensureAdmin, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .select('username role createdAt updatedAt')
+      .select('username role firstName lastName phone email createdAt updatedAt')
       .lean();
 
     res.json({ page, limit, total, items: users });
@@ -43,7 +43,7 @@ router.get('/users', authenticateToken, ensureAdmin, async (req, res) => {
 router.get('/users/:username', authenticateToken, ensureAdmin, async (req, res) => {
   try {
     const { username } = req.params
-    const user = await User.findOne({ username }).select('username role createdAt updatedAt').lean()
+  const user = await User.findOne({ username }).select('username role firstName lastName birthdate phone email gender shiftStart shiftEnd createdAt updatedAt').lean()
     if (!user) return res.status(404).json({ message: 'User not found' })
     res.json(user)
   } catch (e) {
@@ -56,7 +56,7 @@ router.get('/users/:username', authenticateToken, ensureAdmin, async (req, res) 
 router.put('/users/:username', authenticateToken, ensureAdmin, async (req, res) => {
   try {
     const { username } = req.params
-    const { role, password } = req.body || {}
+  const { role, password, firstName, lastName, birthdate, phone, email, gender, shiftStart, shiftEnd } = req.body || {}
     const user = await User.findOne({ username })
     if (!user) return res.status(404).json({ message: 'User not found' })
 
@@ -70,6 +70,16 @@ router.put('/users/:username', authenticateToken, ensureAdmin, async (req, res) 
     if (typeof password === 'string' && password.trim().length > 0) {
       await user.setPassword(password.trim())
     }
+    // update profile fields if provided
+    if (typeof firstName !== 'undefined') user.firstName = firstName
+    if (typeof lastName !== 'undefined') user.lastName = lastName
+    if (typeof birthdate !== 'undefined') user.birthdate = birthdate ? new Date(birthdate) : undefined
+    if (typeof phone !== 'undefined') user.phone = phone
+    if (typeof email !== 'undefined') user.email = email
+    if (typeof gender !== 'undefined') user.gender = gender
+    if (typeof shiftStart !== 'undefined') user.shiftStart = shiftStart
+    if (typeof shiftEnd !== 'undefined') user.shiftEnd = shiftEnd
+
     await user.save()
     // log action
     try {
@@ -81,10 +91,30 @@ router.put('/users/:username', authenticateToken, ensureAdmin, async (req, res) 
         method: req.method,
         path: req.originalUrl,
         status: 200,
-        details: { changedRole: !!role, changedPassword: typeof password === 'string' && password.trim().length > 0 }
+        details: {
+          changedRole: !!role,
+          changedPassword: typeof password === 'string' && password.trim().length > 0,
+          profileUpdated: Boolean(
+            typeof firstName !== 'undefined' || typeof lastName !== 'undefined' || typeof birthdate !== 'undefined' ||
+            typeof phone !== 'undefined' || typeof email !== 'undefined' || typeof gender !== 'undefined' ||
+            typeof shiftStart !== 'undefined' || typeof shiftEnd !== 'undefined'
+          )
+        }
       })
     } catch (e) { /* ignore log error */ }
-    res.json({ username: user.username, role: user.role, updatedAt: user.updatedAt })
+    res.json({
+      username: user.username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      birthdate: user.birthdate,
+      phone: user.phone,
+      email: user.email,
+      gender: user.gender,
+      shiftStart: user.shiftStart,
+      shiftEnd: user.shiftEnd,
+      updatedAt: user.updatedAt
+    })
   } catch (e) {
     console.error(e)
     res.status(500).json({ message: 'Server error' })
@@ -126,3 +156,5 @@ router.get('/logs', authenticateToken, ensureAdmin, ensurePermission('admin.logs
     res.status(500).json({ message: 'Server error' })
   }
 })
+
+// Removed profile picture upload feature as per request

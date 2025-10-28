@@ -3,19 +3,39 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 const User = require("../models/user");
 const ActivityLog = require("../models/activityLog");
+const { loginRateLimiter } = require("../middleware/rateLimiter");
 
 const SECRET_KEY = process.env.JWT_SECRET
 
 router.post("/signup", async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username: rawUsername, password, role,
+      firstName, lastName, birthdate, phone, email, gender, shiftStart, shiftEnd
+    } = req.body || {};
+    const username = (rawUsername || "").trim();
     if (!username || !password)
       return res.status(400).json({ message: "username and password are required" });
+
+    // validate role when provided
+    if (role && !["admin", "warehouse", "cashier"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
 
     const existing = await User.findOne({ username });
     if (existing) return res.status(409).json({ message: "Username already exists" });
 
-    const user = new User({ username, role });
+    const user = new User({
+      username,
+      role,
+      firstName,
+      lastName,
+      birthdate: birthdate ? new Date(birthdate) : undefined,
+      phone,
+      email,
+      gender,
+      shiftStart,
+      shiftEnd,
+    });
     await user.setPassword(password);
     await user.save();
     // log action (actor may be unknown if public signup; fall back to provided username)
@@ -38,9 +58,10 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginRateLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username: rawUsername, password } = req.body || {};
+    const username = (rawUsername || "").trim();
     if (!username || !password)
       return res.status(400).json({ message: "username and password are required" });
 

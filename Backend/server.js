@@ -15,11 +15,18 @@ const apiPublicRoutes = require("./routes/apiPublicRoutes");
 
 const app = express();
 
+// Disable ETag to prevent 304 Not Modified caching on JSON API responses
+// This ensures clients always receive fresh bodies (important for auth/permission checks)
+app.set('etag', false);
+// Hide Express signature
+app.disable('x-powered-by');
+
 // Parse incoming JSON bodies (application/json)
 app.use(bodyParser.json());
 
 // Enable CORS for all origins (in production restrict origin list)
 app.use(cors());
+
 
 // Health / default route
 // Useful for simple liveness checks (e.g., container orchestration)

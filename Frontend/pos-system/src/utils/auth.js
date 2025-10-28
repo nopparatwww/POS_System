@@ -8,7 +8,7 @@ export async function logout() {
     // If backend supports a logout endpoint, call it to invalidate server-side state.
     // We wrap in try/catch and don't fail the client logout if the request fails.
     try {
-      await axios.post(`${API_BASE}/api/auth/logout`)
+      await axios.post(`${API_BASE}/api/auth/logout`, null, { withCredentials: true })
     } catch (e) {
       // endpoint may not exist; ignore network error during logout call
       // console.debug('logout endpoint not available', e)

@@ -22,6 +22,16 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "warehouse", "cashier"],
       default: "cashier",
     },
+    // Profile fields
+    firstName: { type: String },
+    lastName: { type: String },
+    birthdate: { type: Date },
+    phone: { type: String },
+    email: { type: String },
+    gender: { type: String, enum: ['male', 'female', 'other'], default: undefined },
+    // Simple shift window for attendance / scheduling (HH:mm strings)
+    shiftStart: { type: String },
+    shiftEnd: { type: String },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

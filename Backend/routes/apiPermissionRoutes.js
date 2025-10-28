@@ -13,6 +13,7 @@ const PATH_TO_KEY = [
   { path: /^\/admin\/dashboard$/, key: 'admin.dashboard' },
   { path: /^\/admin\/permissions(?:\/.*)?$/, key: 'admin.permissions' },
   { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
+  { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
@@ -27,13 +28,17 @@ function pathToKey(pathname) {
 // Get own permissions (for route guard)
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // Prevent caching of permission payloads
+    res.set('Cache-Control', 'no-store');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     const user = await User.findById(req.user.userId).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const perm = await Permission.findOne({ user: user._id }).lean();
     // baseline by role used as default when no explicit permissions set
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     };
@@ -134,7 +139,7 @@ router.post('/check', authenticateToken, async (req, res) => {
 
     // baseline by role: admins can access admin routes, sales to sales, etc.
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     };

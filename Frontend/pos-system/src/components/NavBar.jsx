@@ -11,13 +11,17 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
 
   const [perm, setPerm] = useState({ allowRoutes: [], denyRoutes: [], role })
   const [loading, setLoading] = useState(false)
+  const [now, setNow] = useState(new Date())
 
   useEffect(() => {
     let mounted = true
     async function load() {
       setLoading(true)
       try {
-        const res = await axios.get(`${API_BASE}/api/permissions/me`)
+        const res = await axios.get(`${API_BASE}/api/permissions/me`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}`, 'Cache-Control': 'no-cache' },
+          params: { t: Date.now() }
+        })
         if (!mounted) return
         setPerm({
           role: res.data?.role,
@@ -34,22 +38,24 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     return () => { mounted = false }
   }, [API_BASE])
 
+  // live clock
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
   const isAllowed = useMemo(() => {
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     }
     const allow = perm.allowRoutes || []
     const deny = perm.denyRoutes || []
     const base = roleBaseline[perm.role] || []
+    const combined = new Set([...base, ...allow])
     return (key) => {
-      let can
-      if (allow.length > 0) {
-        can = allow.includes(key)
-      } else {
-        can = base.includes(key)
-      }
+      let can = combined.has(key)
       if (deny.includes(key)) can = false
       return can
     }
@@ -109,6 +115,12 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
       >
         <div style={{ fontWeight: 800, fontSize: 16 }}>POS System</div>
         <div style={{ fontSize: 12, color: '#94a3b8' }}>{role}</div>
+        <div style={{ marginTop: 6, fontSize: 12, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'inline-flex', width: 8, height: 8, borderRadius: 999, background: '#22c55e' }} />
+          {now.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' })}
+          •
+          {now.toLocaleTimeString(undefined, { hour12: false })}
+        </div>
       </div>
 
       <div style={{ padding: 12 }}>
@@ -118,6 +130,7 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
             <>
               {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
               {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
+              {isAllowed('admin.products') && <MenuLink to="/admin/products">Products</MenuLink>}
               {isAllowed('admin.logs') && <MenuLink to="/admin/logs">Logs</MenuLink>}
             </>
           )}

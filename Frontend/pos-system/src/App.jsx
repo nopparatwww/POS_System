@@ -31,6 +31,7 @@ import AdminPermissions from "./pages/admin/Permissions";
 import UserPermission from "./pages/admin/UserPermission";
 import CreateUser from "./pages/admin/CreateUser";
 import AdminLogs from "./pages/admin/Logs";
+import ProductManagement from "./pages/admin/ProductManagement";
 
 export default function App() {
   return (
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="permissions" element={<AdminPermissions />} />
             <Route path="permissions/create" element={<CreateUser />} />
             <Route path="permissions/:username" element={<UserPermission />} />
+            <Route path="products" element={<ProductManagement />} />
             <Route path="logs" element={<AdminLogs />} />
           </Route>
         </Routes>

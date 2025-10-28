@@ -21,11 +21,22 @@ export default function UserPermission(){
   const [error, setError] = useState(null)
   const [role, setRole] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  // Profile fields
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [birthdate, setBirthdate] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [gender, setGender] = useState('')
+  const [shiftStart, setShiftStart] = useState('')
+  const [shiftEnd, setShiftEnd] = useState('')
   const [allowRoutes, setAllowRoutes] = useState([])
   const [denyRoutes, setDenyRoutes] = useState([]) // kept for backward compat, but hidden from UI
   const [notes, setNotes] = useState('')
   const [initial, setInitial] = useState({ allowRoutes: [], notes: '' })
+  const [initialProfile, setInitialProfile] = useState({ role: '', firstName: '', lastName: '', birthdate: '', phone: '', email: '', gender: '', shiftStart: '', shiftEnd: '' })
   const [isNarrow, setIsNarrow] = useState(false)
+  
 
   useEffect(() => {
     let mounted = true
@@ -33,14 +44,40 @@ export default function UserPermission(){
       setError(null)
       setLoading(true)
       try {
-        const res = await axios.get(`${API_BASE}/api/permissions/${username}`)
+        // fetch permissions and profile in parallel
+        const [permRes, profRes] = await Promise.all([
+          axios.get(`${API_BASE}/api/permissions/${username}`),
+          axios.get(`${API_BASE}/api/protect/users/${username}`)
+        ])
         if(!mounted) return
-  setRole(res.data?.role || '')
-        setAllowRoutes(res.data?.allowRoutes || [])
-        setDenyRoutes(res.data?.denyRoutes || [])
-  setNotes(res.data?.notes || '')
-  // snapshot initial values for dirty detection
-  setInitial({ allowRoutes: res.data?.allowRoutes || [], notes: res.data?.notes || '' })
+
+        setRole(permRes.data?.role || profRes.data?.role || '')
+        setAllowRoutes(permRes.data?.allowRoutes || [])
+        setDenyRoutes(permRes.data?.denyRoutes || [])
+        setNotes(permRes.data?.notes || '')
+        setInitial({ allowRoutes: permRes.data?.allowRoutes || [], notes: permRes.data?.notes || '' })
+
+        // profile fields
+        const u = profRes.data || {}
+        setFirstName(u.firstName || '')
+        setLastName(u.lastName || '')
+        setBirthdate(u.birthdate ? new Date(u.birthdate).toISOString().slice(0,10) : '')
+        setPhone(u.phone || '')
+        setEmail(u.email || '')
+        setGender(u.gender || '')
+        setShiftStart(u.shiftStart || '')
+        setShiftEnd(u.shiftEnd || '')
+        setInitialProfile({
+          role: u.role || '',
+          firstName: u.firstName || '',
+          lastName: u.lastName || '',
+          birthdate: u.birthdate ? new Date(u.birthdate).toISOString().slice(0,10) : '',
+          phone: u.phone || '',
+          email: u.email || '',
+          gender: u.gender || '',
+          shiftStart: u.shiftStart || '',
+          shiftEnd: u.shiftEnd || '',
+        })
       } catch (e) {
         setError(e?.response?.data?.message || e.message)
       } finally {
@@ -75,11 +112,20 @@ export default function UserPermission(){
   }, [allowRoutes, notes, initial])
 
   const profileDirty = useMemo(() => {
-    // profile considered dirty if role differs from initial role loaded via permissions GET
-    // and/or a newPassword is provided
-    // We didn't snapshot role earlier; treat role change or non-empty newPassword as dirty
-    return Boolean(newPassword && newPassword.trim().length > 0)
-  }, [newPassword])
+    const np = Boolean(newPassword && newPassword.trim().length > 0)
+    const changed = (
+      role !== initialProfile.role ||
+      firstName !== initialProfile.firstName ||
+      lastName !== initialProfile.lastName ||
+      birthdate !== initialProfile.birthdate ||
+      phone !== initialProfile.phone ||
+      email !== initialProfile.email ||
+      gender !== initialProfile.gender ||
+      shiftStart !== initialProfile.shiftStart ||
+      shiftEnd !== initialProfile.shiftEnd
+    )
+    return np || changed
+  }, [role, firstName, lastName, birthdate, phone, email, gender, shiftStart, shiftEnd, newPassword, initialProfile])
 
   function toggleAllow(key){
     const has = allowRoutes.includes(key)
@@ -111,6 +157,14 @@ export default function UserPermission(){
       const payload = {}
       if (role) payload.role = role
       if (newPassword && newPassword.trim().length > 0) payload.password = newPassword.trim()
+      payload.firstName = firstName
+      payload.lastName = lastName
+      payload.birthdate = birthdate || undefined
+      payload.phone = phone
+      payload.email = email
+      payload.gender = gender || undefined
+      payload.shiftStart = shiftStart
+      payload.shiftEnd = shiftEnd
       await axios.put(`${API_BASE}/api/protect/users/${username}`, payload)
       alert('Profile updated')
       setNewPassword('')
@@ -120,6 +174,8 @@ export default function UserPermission(){
       setSaving(false)
     }
   }
+
+  
 
   if(loading) return <div style={{ padding: 16 }}>Loading…</div>
   if(error) return <div style={{ padding: 16, color: '#dc2626' }}>{error}</div>
@@ -145,6 +201,44 @@ export default function UserPermission(){
           <div>
             <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>New password</label>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to keep" style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>First name</label>
+            <input value={firstName} onChange={e => setFirstName(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Last name</label>
+            <input value={lastName} onChange={e => setLastName(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Birthdate</label>
+            <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Gender</label>
+            <select value={gender} onChange={e => setGender(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}>
+              <option value="">—</option>
+              <option value="male">male</option>
+              <option value="female">female</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Phone</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift start</label>
+            <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift end</label>
+            <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>

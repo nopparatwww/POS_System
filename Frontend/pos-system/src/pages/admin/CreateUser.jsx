@@ -9,6 +9,15 @@ export default function CreateUser() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState('cashier')
+  // New profile fields
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [birthdate, setBirthdate] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [gender, setGender] = useState('')
+  const [shiftStart, setShiftStart] = useState('')
+  const [shiftEnd, setShiftEnd] = useState('')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [isNarrow, setIsNarrow] = useState(false)
@@ -59,7 +68,19 @@ export default function CreateUser() {
     }
     setSaving(true)
     try {
-      await axios.post(`${API_BASE}/api/auth/signup`, { username, password, role })
+      await axios.post(`${API_BASE}/api/auth/signup`, {
+        username,
+        password,
+        role,
+        firstName,
+        lastName,
+        birthdate: birthdate || undefined,
+        phone,
+        email,
+        gender: gender || undefined,
+        shiftStart,
+        shiftEnd,
+      })
       // Immediately set permissions for the new user
       try {
         await axios.put(`${API_BASE}/api/permissions/${encodeURIComponent(username)}`, { allowRoutes, denyRoutes: [], notes: '' })
@@ -81,9 +102,9 @@ export default function CreateUser() {
       <div style={{ marginBottom: 12 }}>
         <button onClick={() => navigate('/admin/permissions')} style={{ border: '1px solid #0b1b2b', background: '#fff', color: '#0b1b2b', padding: '8px 12px', borderRadius: 6 }}>{'<'} Back</button>
       </div>
-      <h2 style={{ margin: '4px 0 12px 0' }}>Create new user</h2>
-      <form onSubmit={handleSubmit} style={{ maxWidth: 900 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16, alignItems: 'start' }}>
+  <h2 style={{ margin: '4px 0 12px 0', textAlign: 'left' }}>Create new user</h2>
+  <form onSubmit={handleSubmit} style={{ maxWidth: 1000, margin: '0 auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, alignItems: 'start' }}>
           {/* Left: account fields */}
           <div>
             <div style={{ marginBottom: 12 }}>
@@ -102,24 +123,70 @@ export default function CreateUser() {
                 <option value="warehouse">warehouse</option>
               </select>
             </div>
+
+            {/* Profile */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, background: '#fff' }}>
+              <div style={{ fontWeight: 700, marginBottom: 8 }}>Profile info</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>First name</label>
+                  <input value={firstName} onChange={e => setFirstName(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Last name</label>
+                  <input value={lastName} onChange={e => setLastName(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Birthdate</label>
+                  <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Gender</label>
+                  <select value={gender} onChange={e => setGender(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}>
+                    <option value="">—</option>
+                    <option value="male">male</option>
+                    <option value="female">female</option>
+                    <option value="other">other</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Phone</label>
+                  <input value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift start</label>
+                  <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift end</label>
+                  <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Right: permissions selector with role-based defaults */}
-          <div style={{ border: '2px solid #0b1b2b', borderRadius: 8, padding: 12, background: '#fff' }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Allowed pages</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>เมื่อเลือก Role ระบบจะตั้งค่าเริ่มต้นให้อัตโนมัติ สามารถปรับติ๊กเพิ่ม/ลดได้</div>
-            <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 8 }}>
-              {ROUTE_OPTIONS.map(opt => (
-                <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={allowRoutes.includes(opt.key)}
-                    onChange={() => toggleAllow(opt.key)}
-                  />
-                  <span>{opt.label}</span>
-                </label>
-              ))}
-            </div>
+        </div>
+
+        {/* Bottom: permissions selector with role-based defaults */}
+  <div style={{ border: '2px solid #0b1b2b', borderRadius: 8, padding: 12, background: '#fff', marginTop: 16 }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Allowed pages</div>
+          <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>เมื่อเลือก Role ระบบจะตั้งค่าเริ่มต้นให้อัตโนมัติ สามารถปรับติ๊กเพิ่ม/ลดได้</div>
+          <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 8 }}>
+            {ROUTE_OPTIONS.map(opt => (
+              <label key={opt.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={allowRoutes.includes(opt.key)}
+                  onChange={() => toggleAllow(opt.key)}
+                />
+                <span>{opt.label}</span>
+              </label>
+            ))}
           </div>
         </div>
 
