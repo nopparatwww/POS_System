@@ -22,6 +22,7 @@ const PATH_TO_KEY = [
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
+  { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
 ]
 
 function pathToKey(pathname) {
@@ -59,20 +60,9 @@ export default function ProtectedRoute({ children }) {
           params: { t: Date.now() }
         })
   const me = res.data || {}
-  // Fallback to persisted role if API returns empty (e.g., cached 304 without body)
-  const role = me.role || localStorage.getItem('server_role') || ''
   const allowRoutes = Array.isArray(me.allowRoutes) ? me.allowRoutes : []
-  const denyRoutes = Array.isArray(me.denyRoutes) ? me.denyRoutes : []
-
-        const roleBaseline = {
-          admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
-          cashier: ['sales.home'],
-          warehouse: ['warehouse.home'],
-        }
-        // New policy: baseline ∪ allowRoutes, with deny overriding
-        const combined = new Set([...(roleBaseline[role] || []), ...allowRoutes])
-        let can = combined.has(routeKey)
-        if (denyRoutes.includes(routeKey)) can = false
+        // Allow-only policy: a route is allowed only if explicitly present in allowRoutes
+        const can = allowRoutes.includes(routeKey)
         if (!mounted) return
         setAllowed(Boolean(can))
       } catch (e) {

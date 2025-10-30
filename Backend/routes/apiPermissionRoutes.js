@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
+const ensureWithinShift = require('../middleware/ensureWithinShift');
 const ensureAdmin = require('../middleware/ensureAdmin');
 const ensurePermission = require('../middleware/ensurePermission');
 const User = require('../models/user');
@@ -15,6 +16,7 @@ const PATH_TO_KEY = [
   { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
+  { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
 
@@ -26,7 +28,7 @@ function pathToKey(pathname) {
 }
 
 // Get own permissions (for route guard)
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticateToken, ensureWithinShift, async (req, res) => {
   try {
     // Prevent caching of permission payloads
     res.set('Cache-Control', 'no-store');
@@ -55,7 +57,7 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // Admin: Get permissions for a username
-router.get('/:username', authenticateToken, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
+router.get('/:username', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username }).lean();
@@ -76,7 +78,7 @@ router.get('/:username', authenticateToken, ensureAdmin, ensurePermission('admin
 });
 
 // Admin: Update permissions for a username
-router.put('/:username', authenticateToken, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
+router.put('/:username', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.permissions'), async (req, res) => {
   try {
     const { username } = req.params;
     const { allowRoutes = [], denyRoutes = [], notes } = req.body || {};
@@ -125,7 +127,7 @@ router.put('/:username', authenticateToken, ensureAdmin, ensurePermission('admin
 });
 
 // Optional: quick check access for a given path
-router.post('/check', authenticateToken, async (req, res) => {
+router.post('/check', authenticateToken, ensureWithinShift, async (req, res) => {
   try {
     const { path } = req.body || {};
     if (!path) return res.status(400).json({ message: 'path required' });

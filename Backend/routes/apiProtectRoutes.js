@@ -1,13 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
+const ensureWithinShift = require("../middleware/ensureWithinShift");
 const ensureAdmin = require("../middleware/ensureAdmin");
 const User = require("../models/user");
 const ActivityLog = require("../models/activityLog");
 const ensurePermission = require("../middleware/ensurePermission");
 
 // Protected route example
-router.get("/dashboard", authenticateToken, (req, res) => {
+router.get("/dashboard", authenticateToken, ensureWithinShift, (req, res) => {
   res.json({
     message: "Welcome to the protected dashboard",
     user: req.user,
@@ -17,7 +18,7 @@ router.get("/dashboard", authenticateToken, (req, res) => {
 module.exports = router;
 
 // Admin: list users with basic fields and pagination
-router.get('/users', authenticateToken, ensureAdmin, async (req, res) => {
+router.get('/users', authenticateToken, ensureWithinShift, ensureAdmin, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
@@ -40,7 +41,7 @@ router.get('/users', authenticateToken, ensureAdmin, async (req, res) => {
 });
 
 // Admin: get a single user by username
-router.get('/users/:username', authenticateToken, ensureAdmin, async (req, res) => {
+router.get('/users/:username', authenticateToken, ensureWithinShift, ensureAdmin, async (req, res) => {
   try {
     const { username } = req.params
   const user = await User.findOne({ username }).select('username role firstName lastName birthdate phone email gender shiftStart shiftEnd createdAt updatedAt').lean()
@@ -53,7 +54,7 @@ router.get('/users/:username', authenticateToken, ensureAdmin, async (req, res) 
 })
 
 // Admin: update user's role and/or password
-router.put('/users/:username', authenticateToken, ensureAdmin, async (req, res) => {
+router.put('/users/:username', authenticateToken, ensureWithinShift, ensureAdmin, async (req, res) => {
   try {
     const { username } = req.params
   const { role, password, firstName, lastName, birthdate, phone, email, gender, shiftStart, shiftEnd } = req.body || {}
@@ -122,7 +123,7 @@ router.put('/users/:username', authenticateToken, ensureAdmin, async (req, res) 
 })
 
 // Admin: fetch activity logs with optional filters
-router.get('/logs', authenticateToken, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
+router.get('/logs', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1)
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))

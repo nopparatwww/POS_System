@@ -3,38 +3,51 @@ const router = express.Router();
 const Product = require('../models/product');
 const authenticateToken = require('../middleware/authMiddleware');
 const ensurePermission = require('../middleware/ensurePermission');
+const ensureWithinShift = require('../middleware/ensureWithinShift');
 const ActivityLog = require('../models/activityLog');
 
+function escapeRegExp(str = '') {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // Normalize and validate incoming product payload
+// IMPORTANT: Only include fields actually provided to avoid wiping values on partial updates.
 function pickBody(b = {}) {
-  const body = {
-    sku:          (b.sku ?? '').toString().trim(),
-    name:         (b.name ?? '').toString().trim(),
-    description:  b.description == null ? undefined : b.description.toString(),
-    category:     b.category == null ? undefined : b.category.toString(),
-    price:        b.price == null ? undefined : Number(b.price),
-    cost:         b.cost == null ? undefined : Math.max(0, Number(b.cost)),
-    stock:        b.stock == null ? undefined : Number(b.stock),
-    unit:         b.unit == null ? undefined : b.unit.toString(),
-    barcode:      b.barcode == null ? undefined : b.barcode.toString(),
-    status:       b.status == null ? undefined : b.status.toString(),
-    reorderLevel: b.reorderLevel == null ? undefined : Math.max(0, Number(b.reorderLevel)),
-  };
+  const body = {};
+  if (b.sku != null) body.sku = b.sku.toString().trim();
+  if (b.name != null) body.name = b.name.toString().trim();
+  if (b.description != null) body.description = b.description.toString();
+  if (b.category != null) body.category = b.category.toString();
+  if (b.price != null) body.price = Number(b.price);
+  if (b.cost != null) body.cost = Math.max(0, Number(b.cost));
+  if (b.stock != null) body.stock = Number(b.stock);
+  if (b.unit != null) body.unit = b.unit.toString();
+  if (b.barcode != null) body.barcode = b.barcode.toString();
+  if (b.status != null) body.status = b.status.toString();
+  if (b.reorderLevel != null) body.reorderLevel = Math.max(0, Number(b.reorderLevel));
   return body;
 }
 
 // GET /api/protect/products
 // Supports pagination, text search (by name/sku), status filter and simple sort
-router.get('/', authenticateToken, ensurePermission('admin.products'), async (req, res) => {
+router.get('/', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const q = (req.query.q || '').toString().trim();
+  const q = (req.query.q || '').toString().trim();
     const status = (req.query.status || '').toString().trim();
     const sortRaw = (req.query.sort || '-createdAt').toString();
 
     const criteria = {};
-    if (q) criteria.$text = { $search: q };
+    if (q) {
+      const qr = new RegExp(escapeRegExp(q), 'i');
+      criteria.$or = [
+        { sku: qr },
+        { name: qr },
+        { category: qr },
+        { barcode: qr },
+      ];
+    }
     if (status === 'active' || status === 'inactive') criteria.status = status;
 
     const sort = {};
@@ -59,7 +72,7 @@ router.get('/', authenticateToken, ensurePermission('admin.products'), async (re
 });
 
 // POST /api/protect/products
-router.post('/', authenticateToken, ensurePermission('admin.products'), async (req, res) => {
+router.post('/', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
   try {
     const body = pickBody(req.body);
     if (!body.sku || !body.name) return res.status(400).json({ message: 'sku and name are required' });
@@ -88,7 +101,7 @@ router.post('/', authenticateToken, ensurePermission('admin.products'), async (r
 });
 
 // PUT /api/protect/products/:id
-router.put('/:id', authenticateToken, ensurePermission('admin.products'), async (req, res) => {
+router.put('/:id', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
   try {
     const body = pickBody(req.body);
 
@@ -105,7 +118,7 @@ router.put('/:id', authenticateToken, ensurePermission('admin.products'), async 
     const doc = await Product.findByIdAndUpdate(
       req.params.id,
       { $set: body },
-      { new: true }
+      { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ message: 'Not found' });
 
@@ -126,7 +139,7 @@ router.put('/:id', authenticateToken, ensurePermission('admin.products'), async 
 });
 
 // DELETE /api/protect/products/:id
-router.delete('/:id', authenticateToken, ensurePermission('admin.products'), async (req, res) => {
+router.delete('/:id', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
   try {
     const doc = await Product.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ message: 'Not found' });

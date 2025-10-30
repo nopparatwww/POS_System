@@ -7,6 +7,18 @@ const { loginRateLimiter } = require("../middleware/rateLimiter");
 
 const SECRET_KEY = process.env.JWT_SECRET
 
+// Helper: parse HH:mm to minutes since midnight
+function parseHHmmToMin(s) {
+  if (!s || typeof s !== 'string') return null
+  const m = s.trim().match(/^(\d{1,2}):(\d{2})$/)
+  if (!m) return null
+  const h = parseInt(m[1], 10)
+  const min = parseInt(m[2], 10)
+  if (Number.isNaN(h) || Number.isNaN(min)) return null
+  if (h < 0 || h > 23 || min < 0 || min > 59) return null
+  return h * 60 + min
+}
+
 router.post("/signup", async (req, res) => {
   try {
     const { username: rawUsername, password, role,
@@ -70,6 +82,36 @@ router.post("/login", loginRateLimiter, async (req, res) => {
 
     const match = await user.comparePassword(password);
     if (!match) return res.status(401).json({ message: "Invalid username or password" });
+
+    // Check shift window BEFORE issuing token
+    const startM = parseHHmmToMin(user.shiftStart)
+    const endM = parseHHmmToMin(user.shiftEnd)
+    if (startM != null || endM != null) {
+      const now = new Date()
+      const nowM = now.getHours() * 60 + now.getMinutes()
+      let inWindow = true
+      if (startM == null && endM != null) {
+        // Only end configured: block at and after end
+        inWindow = nowM < endM
+      } else if (startM != null && endM == null) {
+        // Only start configured: allow all (current policy)
+        inWindow = true
+      } else if (startM != null && endM != null) {
+        if (endM > startM) {
+          // Same-day window [start, end)
+          inWindow = nowM >= startM && nowM < endM
+        } else if (endM < startM) {
+          // Overnight window [start, 24:00) U [00:00, end)
+          inWindow = (nowM >= startM) || (nowM < endM)
+        } else {
+          // start == end: treat as always allowed
+          inWindow = true
+        }
+      }
+      if (!inWindow) {
+        return res.status(403).json({ message: 'Shift ended', code: 'SHIFT_OUTSIDE' })
+      }
+    }
 
     const payload = { userId: user._id, role: user.role, username: user.username };
 

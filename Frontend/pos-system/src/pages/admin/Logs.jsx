@@ -96,41 +96,51 @@ export default function AdminLogs() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '6px 8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             <button
               aria-label="Previous page"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
               style={{
-                background: page <= 1 ? '#94a3b8' : '#0b1b2b',
-                color: '#fff',
-                border: 'none',
+                padding: '8px 14px',
                 borderRadius: 999,
-                padding: '8px 12px',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                color: page <= 1 ? '#94a3b8' : '#0f172a',
                 cursor: page <= 1 ? 'not-allowed' : 'pointer',
-                transition: 'background-color 120ms ease, transform 120ms ease'
+                boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+                transition: 'transform 100ms ease, background 120ms ease',
               }}
+              onMouseEnter={e => { if (page > 1) e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none'; }}
+              onMouseDown={e => { if (page > 1) e.currentTarget.style.transform = 'translateY(1px)'; }}
+              onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
             >
-              ← Prev
+              Prev
             </button>
-            <div style={{ padding: '6px 10px', color: '#0b1b2b', fontWeight: 700 }}>
-              Page {page} / {totalPages}
+            <div style={{ padding: '6px 10px', color: '#475569', fontWeight: 700 }}>
+              Page {page} of {totalPages}
             </div>
             <button
               aria-label="Next page"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
               style={{
-                background: page >= totalPages ? '#94a3b8' : '#0b1b2b',
-                color: '#fff',
-                border: 'none',
+                padding: '8px 14px',
                 borderRadius: 999,
-                padding: '8px 12px',
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                color: page >= totalPages ? '#94a3b8' : '#0f172a',
                 cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-                transition: 'background-color 120ms ease, transform 120ms ease'
+                boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+                transition: 'transform 100ms ease, background 120ms ease',
               }}
+              onMouseEnter={e => { if (page < totalPages) e.currentTarget.style.background = '#f8fafc'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none'; }}
+              onMouseDown={e => { if (page < totalPages) e.currentTarget.style.transform = 'translateY(1px)'; }}
+              onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
             >
-              Next →
+              Next
             </button>
           </div>
         </div>

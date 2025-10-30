@@ -38,6 +38,28 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     return () => { mounted = false }
   }, [API_BASE])
 
+  // Periodically revalidate permissions to detect shift end and permission changes
+  useEffect(() => {
+    let mounted = true
+    const id = setInterval(async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/permissions/me`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}`, 'Cache-Control': 'no-cache' },
+          params: { t: Date.now() }
+        })
+        if (!mounted) return
+        setPerm(p => ({
+          role: res.data?.role ?? p.role,
+          allowRoutes: res.data?.allowRoutes || p.allowRoutes || [],
+          denyRoutes: res.data?.denyRoutes || p.denyRoutes || [],
+        }))
+      } catch (e) {
+        // If 403 SHIFT_OUTSIDE occurs, axios interceptor will clear token and redirect
+      }
+    }, 60000) // every 60 seconds
+    return () => { mounted = false; clearInterval(id) }
+  }, [API_BASE])
+
   // live clock
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
@@ -45,21 +67,10 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
   }, [])
 
   const isAllowed = useMemo(() => {
-    const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
-      cashier: ['sales.home'],
-      warehouse: ['warehouse.home'],
-    }
-    const allow = perm.allowRoutes || []
-    const deny = perm.denyRoutes || []
-    const base = roleBaseline[perm.role] || []
-    const combined = new Set([...base, ...allow])
-    return (key) => {
-      let can = combined.has(key)
-      if (deny.includes(key)) can = false
-      return can
-    }
-  }, [perm])
+    // Allow-only policy: only items listed in allowRoutes are visible
+    const allow = new Set(perm.allowRoutes || [])
+    return (key) => allow.has(key)
+  }, [perm.allowRoutes])
 
   // small helper to render menu links with hover effect
   function MenuLink({ to, children }) {
@@ -145,6 +156,7 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
           {mode === 'warehouse' && (
             <>
               {isAllowed('warehouse.home') && <MenuLink to="/warehouse">Warehouse Home</MenuLink>}
+              {isAllowed('warehouse.products') && <MenuLink to="/warehouse/products">Products</MenuLink>}
               {/* add warehouse-specific quick links here if needed */}
             </>
           )}

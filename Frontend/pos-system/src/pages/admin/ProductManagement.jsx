@@ -21,7 +21,27 @@ export default function ProductManagement() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
-  const [draft, setDraft] = useState({ _id: '', sku: '', name: '', price: '', stock: '' })
+  const [statusFilter, setStatusFilter] = useState('') // '', 'active', 'inactive'
+  const [sort, setSort] = useState('-createdAt') // '-createdAt' | 'createdAt' | 'name' | 'price' | '-price'
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [total, setTotal] = useState(0)
+  const [togglingId, setTogglingId] = useState(null)
+
+  const [draft, setDraft] = useState({
+    _id: '',
+    sku: '',
+    name: '',
+    description: '',
+    category: '',
+    price: '',
+    cost: '',
+    stock: '',
+    unit: 'ชิ้น',
+    barcode: '',
+    status: 'active',
+    reorderLevel: '5',
+  })
   const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
@@ -31,32 +51,29 @@ export default function ProductManagement() {
       try {
         const res = await axios.get(`${API_BASE}/api/protect/products`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}` },
-          params: { t: Date.now() }
+          params: { t: Date.now(), q, page, limit, sort, status: statusFilter }
         })
         if (!mounted) return
-        setItems(Array.isArray(res.data?.items) ? res.data.items : [])
+        const data = res.data || {}
+        setItems(Array.isArray(data.items) ? data.items : [])
+        setTotal(Number(data.total || 0))
       } catch (e) {
-        // Graceful fallback: keep items empty and surface a friendly message once
         if (!mounted) return
-        setError('Backend for products not found yet. Showing empty list. You can still use the UI; data will persist when backend is implemented.')
+        setError(e?.response?.data?.message || e.message)
       } finally {
         if (mounted) setLoading(false)
       }
     }
     load()
     return () => { mounted = false }
-  }, [API_BASE])
+  }, [API_BASE, q, page, limit, sort, statusFilter])
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return items
-    return items.filter(it =>
-      (it.name || '').toLowerCase().includes(s) || (it.sku || '').toLowerCase().includes(s)
-    )
-  }, [q, items])
+  const totalPages = useMemo(() => Math.max(1, Math.ceil((total || 0) / (limit || 10))), [total, limit])
 
   function resetDraft() {
-    setDraft({ _id: '', sku: '', name: '', price: '', stock: '' })
+    setDraft({
+      _id: '', sku: '', name: '', description: '', category: '', price: '', cost: '', stock: '', unit: 'ชิ้น', barcode: '', status: 'active', reorderLevel: '5'
+    })
     setIsEditing(false)
   }
 
@@ -65,8 +82,15 @@ export default function ProductManagement() {
       _id: item._id || '',
       sku: item.sku || '',
       name: item.name || '',
+      description: item.description || '',
+      category: item.category || '',
       price: String(item.price ?? ''),
+      cost: String(item.cost ?? ''),
       stock: String(item.stock ?? ''),
+      unit: item.unit || 'ชิ้น',
+      barcode: item.barcode || '',
+      status: item.status || 'active',
+      reorderLevel: String(item.reorderLevel ?? '5'),
     })
     setIsEditing(true)
   }
@@ -76,14 +100,20 @@ export default function ProductManagement() {
     const body = {
       sku: draft.sku.trim(),
       name: draft.name.trim(),
-      price: Number(draft.price) || 0,
-      stock: Number(draft.stock) || 0,
+      description: draft.description.trim() || undefined,
+      category: draft.category.trim() || undefined,
+      price: Number(draft.price),
+      cost: draft.cost === '' ? undefined : Number(draft.cost),
+      stock: Number(draft.stock),
+      unit: draft.unit.trim() || undefined,
+      barcode: draft.barcode.trim() || undefined,
+      status: draft.status || undefined,
+      reorderLevel: draft.reorderLevel === '' ? undefined : Number(draft.reorderLevel),
     }
 
-    // Try backend first; if missing, update client state only
     try {
       if (isEditing && draft._id) {
-        const res = await axios.put(`${API_BASE}/api/protect/products/${encodeURIComponent(draft._id)}`, body, {
+        const res = await axios.put(`${API_BASE}/api/protect/products/${encodeURIComponent(String(draft._id))}`, body, {
           headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}` }
         })
         const updated = res.data
@@ -93,18 +123,13 @@ export default function ProductManagement() {
           headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}` }
         })
         const created = res.data
+        // reload first page to reflect backend sort/pagination
+        setPage(1)
         setItems(prev => [created, ...prev])
       }
       resetDraft()
     } catch (e) {
-      // Fallback: simulate locally
-      if (isEditing && draft._id) {
-        setItems(prev => prev.map(it => it._id === draft._id ? { ...it, ...body } : it))
-      } else {
-        const tmpId = `tmp_${Date.now()}`
-        setItems(prev => [{ _id: tmpId, ...body }, ...prev])
-      }
-      resetDraft()
+      setError(e?.response?.data?.message || e.message)
     }
   }
 
@@ -117,8 +142,28 @@ export default function ProductManagement() {
       })
       setItems(prev => prev.filter(it => it._id !== id))
     } catch (e) {
-      // Local fallback
-      setItems(prev => prev.filter(it => it._id !== id))
+      setError(e?.response?.data?.message || e.message)
+    }
+  }
+
+  async function toggleStatus(item) {
+    if (!item?._id || togglingId) return
+    const newStatus = item.status === 'active' ? 'inactive' : 'active'
+    setTogglingId(item._id)
+    // optimistic update
+    setItems(prev => prev.map(it => it._id === item._id ? { ...it, status: newStatus } : it))
+    try {
+      const res = await axios.put(`${API_BASE}/api/protect/products/${encodeURIComponent(item._id)}`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('api_token') || ''}` }
+      })
+      const updated = res.data
+      setItems(prev => prev.map(it => it._id === updated._id ? updated : it))
+    } catch (e) {
+      // revert on error
+      setItems(prev => prev.map(it => it._id === item._id ? { ...it, status: item.status } : it))
+      setError(e?.response?.data?.message || e.message)
+    } finally {
+      setTogglingId(null)
     }
   }
 
@@ -132,14 +177,26 @@ export default function ProductManagement() {
         </div>
       )}
 
-      {/* Search and create form */}
+      {/* Search, filters, and create form */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 16 }}>
         <div style={{ ...card }}>
           <form onSubmit={onSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
             <input placeholder="SKU" value={draft.sku} onChange={e => setDraft(d => ({ ...d, sku: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
             <input placeholder="Name" value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="Category" value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="Barcode" value={draft.barcode} onChange={e => setDraft(d => ({ ...d, barcode: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="Unit" value={draft.unit} onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+
             <input placeholder="Price" value={draft.price} onChange={e => setDraft(d => ({ ...d, price: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="Cost" value={draft.cost} onChange={e => setDraft(d => ({ ...d, cost: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
             <input placeholder="Stock" value={draft.stock} onChange={e => setDraft(d => ({ ...d, stock: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="Reorder Level" value={draft.reorderLevel} onChange={e => setDraft(d => ({ ...d, reorderLevel: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <select value={draft.status} onChange={e => setDraft(d => ({ ...d, status: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+              <option value="active">active</option>
+              <option value="inactive">inactive</option>
+            </select>
+
+            <textarea placeholder="Description" value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))} style={{ gridColumn: '1 / -1', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8, minHeight: 64 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 }}>{isEditing ? 'Update' : 'Create'}</button>
               {isEditing && (
@@ -149,44 +206,241 @@ export default function ProductManagement() {
           </form>
         </div>
 
-        <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input placeholder="Search by name or SKU" value={q} onChange={e => setQ(e.target.value)} style={{ flex: 1, padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-          {loading && <span style={{ color: '#64748b' }}>Loading…</span>}
+        <div style={{ ...card, display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
+          <input placeholder="Search by name or SKU" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <option value="">All statuses</option>
+            <option value="active">active</option>
+            <option value="inactive">inactive</option>
+          </select>
+          <select value={sort} onChange={e => { setSort(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <option value="-createdAt">Newest</option>
+            <option value="createdAt">Oldest</option>
+            <option value="name">Name A-Z</option>
+            <option value="price">Price Low-High</option>
+            <option value="-price">Price High-Low</option>
+          </select>
         </div>
       </div>
 
       {/* List */}
       <div style={{ ...card }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup>{[
+            140, // SKU
+            null, // Name (flex)
+            140, // Category
+            100, // Price
+            80,  // Stock
+            100, // Status
+            140, // Actions
+          ].map((w, i) => (
+            <col key={i} style={w ? { width: w } : undefined} />
+          ))}</colgroup>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
               <th style={{ padding: 8 }}>SKU</th>
               <th style={{ padding: 8 }}>Name</th>
+              <th style={{ padding: 8 }}>Category</th>
               <th style={{ padding: 8 }}>Price</th>
               <th style={{ padding: 8 }}>Stock</th>
+              <th style={{ padding: 8 }}>Status</th>
               <th style={{ padding: 8, width: 140 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(it => (
+            {items.map(it => (
               <tr key={it._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                <td style={{ padding: 8 }}>{it.sku}</td>
-                <td style={{ padding: 8 }}>{it.name}</td>
+                <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.sku}</td>
+                <td style={{ padding: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</td>
+                <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.category}</td>
                 <td style={{ padding: 8 }}>{typeof it.price === 'number' ? it.price.toFixed(2) : it.price}</td>
-                <td style={{ padding: 8 }}>{it.stock}</td>
+                <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.stock}</td>
+                <td style={{ padding: 8 }}>
+                  <button
+                    type="button"
+                    aria-label={`Toggle status for ${it.name}`}
+                    aria-pressed={it.status === 'active'}
+                    onClick={() => toggleStatus(it)}
+                    disabled={togglingId === it._id}
+                    style={{
+                      position: 'relative',
+                      width: 44,
+                      height: 24,
+                      borderRadius: 999,
+                      border: '1px solid #e5e7eb',
+                      background: it.status === 'active' ? '#059669' : '#f1f5f9',
+                      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.03)',
+                      cursor: togglingId === it._id ? 'not-allowed' : 'pointer',
+                      opacity: togglingId === it._id ? 0.7 : 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        left: it.status === 'active' ? 22 : 2,
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+                        transition: 'left 150ms ease'
+                      }}
+                    />
+                  </button>
+                </td>
                 <td style={{ padding: 8 }}>
                   <button onClick={() => onEdit(it)} style={{ marginRight: 8, background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 10px' }}>Edit</button>
                   <button onClick={() => onDelete(it._id)} style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 10px' }}>Delete</button>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {items.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ padding: 16, color: '#64748b' }}>No products</td>
+                <td colSpan={7} style={{ padding: 16, color: '#64748b' }}>No products</td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Edit Modal */}
+      {isEditing && (
+        <div
+          onClick={(e) => {
+            // close when clicking backdrop only
+            if (e.target === e.currentTarget) {
+              resetDraft()
+            }
+          }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 50,
+          }}
+        >
+          <div style={{
+            width: 'min(700px, 92vw)',
+            background: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: 12,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            padding: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Edit product</h3>
+              <button onClick={resetDraft} aria-label="Close" style={{ border: '1px solid #e5e7eb', background: '#fff', borderRadius: 8, padding: '6px 10px' }}>Close</button>
+            </div>
+            <form onSubmit={onSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>SKU</label>
+                <input value={draft.sku} onChange={e => setDraft(d => ({ ...d, sku: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Name</label>
+                <input value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Category</label>
+                <input value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Barcode</label>
+                <input value={draft.barcode} onChange={e => setDraft(d => ({ ...d, barcode: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Unit</label>
+                <input value={draft.unit} onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Status</label>
+                <select value={draft.status} onChange={e => setDraft(d => ({ ...d, status: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                  <option value="active">active</option>
+                  <option value="inactive">inactive</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Price</label>
+                <input value={draft.price} onChange={e => setDraft(d => ({ ...d, price: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Cost</label>
+                <input value={draft.cost} onChange={e => setDraft(d => ({ ...d, cost: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Stock</label>
+                <input value={draft.stock} onChange={e => setDraft(d => ({ ...d, stock: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Reorder Level</label>
+                <input value={draft.reorderLevel} onChange={e => setDraft(d => ({ ...d, reorderLevel: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+              </div>
+              <div />
+              <div />
+
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Description</label>
+                <textarea value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))} style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8, minHeight: 80 }} />
+              </div>
+
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={resetDraft} style={{ background: '#e5e7eb', border: 'none', borderRadius: 8, padding: '8px 12px' }}>Cancel</button>
+                <button type="submit" style={{ background: '#0b1b2b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 }}>Update</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom pagination controls */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 999,
+              border: '1px solid #e5e7eb',
+              background: '#ffffff',
+              color: page <= 1 ? '#94a3b8' : '#0f172a',
+              cursor: page <= 1 ? 'not-allowed' : 'pointer',
+              boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+              transition: 'transform 100ms ease, background 120ms ease',
+            }}
+            onMouseEnter={e => { if (page > 1) e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none'; }}
+            onMouseDown={e => { if (page > 1) e.currentTarget.style.transform = 'translateY(1px)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
+          >
+            Prev
+          </button>
+          <span style={{ color: '#475569', fontWeight: 600 }}>Page {page} of {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            style={{
+              padding: '8px 14px',
+              borderRadius: 999,
+              border: '1px solid #e5e7eb',
+              background: '#ffffff',
+              color: page >= totalPages ? '#94a3b8' : '#0f172a',
+              cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+              transition: 'transform 100ms ease, background 120ms ease',
+            }}
+            onMouseEnter={e => { if (page < totalPages) e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none'; }}
+            onMouseDown={e => { if (page < totalPages) e.currentTarget.style.transform = 'translateY(1px)'; }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   )

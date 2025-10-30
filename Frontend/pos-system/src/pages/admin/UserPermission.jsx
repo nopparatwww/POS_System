@@ -7,8 +7,10 @@ const ROUTE_OPTIONS = [
   { key: 'admin.dashboard', label: 'Admin: Dashboard' },
   { key: 'admin.permissions', label: 'Admin: Permissions' },
   { key: 'admin.logs', label: 'Admin: Logs' },
+  { key: 'admin.products', label: 'Admin: Products' },
   { key: 'sales.home', label: 'Sales: Home' },
   { key: 'warehouse.home', label: 'Warehouse: Home' },
+  { key: 'warehouse.products', label: 'Warehouse: Products' },
 ]
 
 export default function UserPermission(){
@@ -31,11 +33,41 @@ export default function UserPermission(){
   const [shiftStart, setShiftStart] = useState('')
   const [shiftEnd, setShiftEnd] = useState('')
   const [allowRoutes, setAllowRoutes] = useState([])
-  const [denyRoutes, setDenyRoutes] = useState([]) // kept for backward compat, but hidden from UI
   const [notes, setNotes] = useState('')
   const [initial, setInitial] = useState({ allowRoutes: [], notes: '' })
   const [initialProfile, setInitialProfile] = useState({ role: '', firstName: '', lastName: '', birthdate: '', phone: '', email: '', gender: '', shiftStart: '', shiftEnd: '' })
   const [isNarrow, setIsNarrow] = useState(false)
+
+  // Normalize various time inputs to 24-hour HH:mm format (e.g., "1:30 pm" -> "13:30")
+  function toHHmm(input){
+    if (!input) return ''
+    let s = String(input).trim().toLowerCase()
+    s = s.replace(/\./g, ':') // allow 1.30 -> 1:30
+    s = s.replace(/\s+/g, ' ').trim()
+    const ampmMatch = s.match(/\b(am|pm)\b/i)
+    const ampm = ampmMatch ? ampmMatch[1].toLowerCase() : null
+    s = s.replace(/\b(am|pm)\b/ig, '').trim()
+    // Extract hours and minutes
+    const m = s.match(/^(\d{1,2})(?::(\d{1,2}))?$/)
+    if (!m) return input // keep as-is if not parsable; user can correct
+    let h = parseInt(m[1], 10)
+    let min = m[2] != null ? parseInt(m[2], 10) : 0
+    if (Number.isNaN(h) || Number.isNaN(min)) return input
+    if (ampm) {
+      // 12-hour to 24-hour
+      if (ampm === 'am') {
+        h = (h % 12) // 12am -> 0
+      } else if (ampm === 'pm') {
+        h = (h % 12) + 12 // 1pm -> 13, 12pm -> 12
+      }
+    }
+    if (h < 0 || h > 23 || min < 0 || min > 59) return input
+    const HH = String(h).padStart(2, '0')
+    const MM = String(min).padStart(2, '0')
+    return `${HH}:${MM}`
+  }
+
+  // TimePicker dropdown removed per request — use plain inputs below
   
 
   useEffect(() => {
@@ -52,10 +84,9 @@ export default function UserPermission(){
         if(!mounted) return
 
         setRole(permRes.data?.role || profRes.data?.role || '')
-        setAllowRoutes(permRes.data?.allowRoutes || [])
-        setDenyRoutes(permRes.data?.denyRoutes || [])
+  setAllowRoutes(permRes.data?.allowRoutes || [])
         setNotes(permRes.data?.notes || '')
-        setInitial({ allowRoutes: permRes.data?.allowRoutes || [], notes: permRes.data?.notes || '' })
+  setInitial({ allowRoutes: permRes.data?.allowRoutes || [], notes: permRes.data?.notes || '' })
 
         // profile fields
         const u = profRes.data || {}
@@ -65,8 +96,8 @@ export default function UserPermission(){
         setPhone(u.phone || '')
         setEmail(u.email || '')
         setGender(u.gender || '')
-        setShiftStart(u.shiftStart || '')
-        setShiftEnd(u.shiftEnd || '')
+  setShiftStart(toHHmm(u.shiftStart || ''))
+  setShiftEnd(toHHmm(u.shiftEnd || ''))
         setInitialProfile({
           role: u.role || '',
           firstName: u.firstName || '',
@@ -99,7 +130,6 @@ export default function UserPermission(){
   }, [])
 
   const allowSet = useMemo(() => new Set(allowRoutes), [allowRoutes])
-  const denySet = useMemo(() => new Set(denyRoutes), [denyRoutes])
 
   function sameSet(a = [], b = []){
     if (a.length !== b.length) return false
@@ -138,7 +168,7 @@ export default function UserPermission(){
     setError(null)
     try {
       // Preserve denyRoutes as-is (UI doesn't edit it) to avoid unintended changes
-      await axios.put(`${API_BASE}/api/permissions/${username}`,{ allowRoutes, denyRoutes, notes })
+      await axios.put(`${API_BASE}/api/permissions/${username}`,{ allowRoutes, notes })
       alert('Saved permissions')
       // Update initial snapshot after save
       setInitial({ allowRoutes: [...allowRoutes], notes })
@@ -233,12 +263,28 @@ export default function UserPermission(){
           </div>
           
           <div>
-            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift start</label>
-            <input type="time" value={shiftStart} onChange={e => setShiftStart(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift start (HH:mm)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="HH:mm"
+              value={shiftStart}
+              onChange={e => setShiftStart(e.target.value)}
+              onBlur={e => setShiftStart(toHHmm(e.target.value))}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}
+            />
           </div>
           <div>
-            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift end</label>
-            <input type="time" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }} />
+            <label style={{ display: 'block', fontWeight: 600, marginBottom: 6 }}>Shift end (HH:mm)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="HH:mm"
+              value={shiftEnd}
+              onChange={e => setShiftEnd(e.target.value)}
+              onBlur={e => setShiftEnd(toHHmm(e.target.value))}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}
+            />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
@@ -254,7 +300,7 @@ export default function UserPermission(){
         </div>
       </div>
 
-      {/* Single-tab allow-only selector */}
+      {/* Allowed pages: only checked items are visible/accessible */}
       <div style={{ border: '2px solid #0b1b2b', borderRadius: 8, padding: 12 }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>Allowed pages</div>
         <div style={{ color: '#64748b', fontSize: 12, marginBottom: 8 }}>ติ๊กถูกเพื่อให้เห็นเมนูและเข้าใช้งานหน้า/ข้อมูลของระบบ (ไม่ติ๊ก = ไม่เห็นและใช้งานไม่ได้)</div>

@@ -3,7 +3,7 @@ const User = require('../models/user')
 
 // role baseline mapping should match apiPermissionRoutes
 const roleBaseline = {
-  admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
+  admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
   cashier: ['sales.home'],
   warehouse: ['warehouse.home'],
 }
@@ -17,13 +17,16 @@ module.exports = function ensurePermission(requiredKey) {
       const allow = perm?.allowRoutes || []
       const deny = perm?.denyRoutes || []
 
+      const required = Array.isArray(requiredKey) ? requiredKey : [requiredKey]
+
       let allowed
       if (allow.length > 0) {
-        allowed = allow.includes(requiredKey)
+        allowed = required.some(k => allow.includes(k))
       } else {
-        allowed = (roleBaseline[me.role] || []).includes(requiredKey)
+        const base = roleBaseline[me.role] || []
+        allowed = required.some(k => base.includes(k))
       }
-      if (deny.includes(requiredKey)) allowed = false
+      if (required.some(k => deny.includes(k))) allowed = false
 
       if (!allowed) return res.status(403).json({ message: 'Forbidden' })
       next()

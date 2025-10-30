@@ -85,9 +85,17 @@ export default function Permissions() {
   td: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', verticalAlign: 'middle' },
   tdCenter: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', textAlign: 'center', verticalAlign: 'middle' },
     editBtn: { background: '#0b1b2b', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-    pager: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 },
-    pagerBtn: (disabled) => ({ background: '#0b1b2b', color: '#fff', border: 'none', width: 36, height: 28, borderRadius: 6, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }),
-    pageNum: { fontWeight: 600, color: '#0b1b2b' },
+    pager: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 16 },
+    pagerBtn: (disabled) => ({
+      padding: '8px 14px',
+      borderRadius: 999,
+      border: '1px solid #e5e7eb',
+      background: '#ffffff',
+      color: disabled ? '#94a3b8' : '#0f172a',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      boxShadow: '0 6px 14px rgba(0,0,0,0.06)'
+    }),
+    pageNum: { fontWeight: 700, color: '#475569' },
     container: { width: '100%', maxWidth: 'none', margin: 0 }
   }
 
@@ -176,9 +184,29 @@ export default function Permissions() {
 
         {/* Pagination */}
         <div style={styles.pager}>
-          <button style={styles.pagerBtn(page === 1)} disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>{'<'}</button>
-          <div style={styles.pageNum}>{page}</div>
-          <button style={styles.pagerBtn(page === totalPages)} disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>{'>'}</button>
+          <button
+            style={styles.pagerBtn(page === 1)}
+            disabled={page === 1}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            onMouseEnter={e => { if (page > 1) e.currentTarget.style.background = '#f8fafc' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none' }}
+            onMouseDown={e => { if (page > 1) e.currentTarget.style.transform = 'translateY(1px)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'none' }}
+          >
+            Prev
+          </button>
+          <div style={styles.pageNum}>Page {page} of {totalPages}</div>
+          <button
+            style={styles.pagerBtn(page === totalPages)}
+            disabled={page === totalPages}
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            onMouseEnter={e => { if (page < totalPages) e.currentTarget.style.background = '#f8fafc' }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'none' }}
+            onMouseDown={e => { if (page < totalPages) e.currentTarget.style.transform = 'translateY(1px)' }}
+            onMouseUp={e => { e.currentTarget.style.transform = 'none' }}
+          >
+            Next
+          </button>
         </div>
       </div>
     </div>
