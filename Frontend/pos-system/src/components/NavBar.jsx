@@ -142,7 +142,14 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
               {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
               {isAllowed('admin.products') && <MenuLink to="/admin/products">Products</MenuLink>}
-              {isAllowed('admin.logs') && <MenuLink to="/admin/logs">Logs</MenuLink>}
+              {isAllowed('admin.logs') && (
+                <>
+                  <MenuLink to="/admin/logs/all">Logs (All)</MenuLink>
+                  <MenuLink to="/admin/logs/admin">Logs - Admin</MenuLink>
+                  <MenuLink to="/admin/logs/cashier">Logs - Cashier</MenuLink>
+                  <MenuLink to="/admin/logs/warehouse">Logs - Warehouse</MenuLink>
+                </>
+              )}
             </>
           )}
 

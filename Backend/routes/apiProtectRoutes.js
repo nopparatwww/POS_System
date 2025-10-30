@@ -129,6 +129,7 @@ router.get('/logs', authenticateToken, ensureWithinShift, ensureAdmin, ensurePer
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
     const q = (req.query.q || '').toString().trim()
     const user = (req.query.user || '').toString().trim()
+    const role = (req.query.role || '').toString().trim().toLowerCase()
 
     const criteria = {}
     if (q) {
@@ -142,6 +143,9 @@ router.get('/logs', authenticateToken, ensureWithinShift, ensureAdmin, ensurePer
     if (user) {
       criteria.$and = (criteria.$and || [])
       criteria.$and.push({ $or: [ { actorUsername: user }, { targetUsername: user } ] })
+    }
+    if (role && ['admin','cashier','warehouse'].includes(role)) {
+      criteria.actorRole = role
     }
 
     const total = await ActivityLog.countDocuments(criteria)

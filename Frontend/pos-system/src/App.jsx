@@ -31,6 +31,10 @@ import AdminPermissions from "./pages/admin/Permissions";
 import UserPermission from "./pages/admin/UserPermission";
 import CreateUser from "./pages/admin/CreateUser";
 import AdminLogs from "./pages/admin/Logs";
+import AllLogs from "./pages/admin/logs/AllLogs";
+import AdminOnlyLogs from "./pages/admin/logs/AdminLogs";
+import CashierLogs from "./pages/admin/logs/CashierLogs";
+import WarehouseLogs from "./pages/admin/logs/WarehouseLogs";
 import ProductManagement from "./pages/admin/ProductManagement";
 import WarehouseProducts from "./pages/warehouse/Products";
 
@@ -51,7 +55,13 @@ export default function App() {
             <Route path="permissions/create" element={<CreateUser />} />
             <Route path="permissions/:username" element={<UserPermission />} />
             <Route path="products" element={<ProductManagement />} />
-            <Route path="logs" element={<AdminLogs />} />
+            {/* Legacy single logs view */}
+            <Route path="logs" element={<Navigate to="logs/all" replace />} />
+            {/* New categorized logs */}
+            <Route path="logs/all" element={<AllLogs />} />
+            <Route path="logs/admin" element={<AdminOnlyLogs />} />
+            <Route path="logs/cashier" element={<CashierLogs />} />
+            <Route path="logs/warehouse" element={<WarehouseLogs />} />
           </Route>
         </Routes>
       </main>
