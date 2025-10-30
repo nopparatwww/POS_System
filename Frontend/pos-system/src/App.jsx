@@ -37,6 +37,8 @@ import CashierLogs from "./pages/admin/logs/CashierLogs";
 import WarehouseLogs from "./pages/admin/logs/WarehouseLogs";
 import ProductManagement from "./pages/admin/ProductManagement";
 import WarehouseProducts from "./pages/warehouse/Products";
+import WarehouseLogsPage from "./pages/warehouse/Logs";
+import SalesLogsPage from "./pages/sales/Logs";
 
 export default function App() {
   return (
@@ -46,8 +48,10 @@ export default function App() {
           <Route path="/" element={<Login />} />
           {/* RoleSelect removed: users go directly to their role's home */}
           <Route path="/warehouse" element={<ProtectedRoute><Warehouse /></ProtectedRoute>} />
+          <Route path="/warehouse/logs" element={<ProtectedRoute><WarehouseLogsPage /></ProtectedRoute>} />
           <Route path="/warehouse/products" element={<ProtectedRoute><WarehouseProducts /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+          <Route path="/sales/logs" element={<ProtectedRoute><SalesLogsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />

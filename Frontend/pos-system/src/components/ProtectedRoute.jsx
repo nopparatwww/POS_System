@@ -18,7 +18,11 @@ import { Navigate, useLocation } from 'react-router-dom'
 const PATH_TO_KEY = [
   { path: /^\/admin\/dashboard$/, key: 'admin.dashboard' },
   { path: /^\/admin\/permissions(?:\/.*)?$/, key: 'admin.permissions' },
-  { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
+  // Fine-grained logs
+  { path: /^\/admin\/logs\/all$/, key: 'admin.logs.all' },
+  { path: /^\/admin\/logs\/admin$/, key: 'admin.logs.admin' },
+  { path: /^\/admin\/logs\/cashier$/, key: 'admin.logs.cashier' },
+  { path: /^\/admin\/logs\/warehouse$/, key: 'admin.logs.warehouse' },
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },

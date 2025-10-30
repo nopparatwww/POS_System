@@ -142,21 +142,18 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
               {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
               {isAllowed('admin.products') && <MenuLink to="/admin/products">Products</MenuLink>}
-              {isAllowed('admin.logs') && (
-                <>
-                  <MenuLink to="/admin/logs/all">Logs (All)</MenuLink>
-                  <MenuLink to="/admin/logs/admin">Logs - Admin</MenuLink>
-                  <MenuLink to="/admin/logs/cashier">Logs - Cashier</MenuLink>
-                  <MenuLink to="/admin/logs/warehouse">Logs - Warehouse</MenuLink>
-                </>
-              )}
+              {/* Logs links per granular permissions (legacy 'admin.logs' still enables all) */}
+              {(isAllowed('admin.logs') || isAllowed('admin.logs.all')) && <MenuLink to="/admin/logs/all">Logs (All)</MenuLink>}
+              {(isAllowed('admin.logs') || isAllowed('admin.logs.admin')) && <MenuLink to="/admin/logs/admin">Logs - Admin</MenuLink>}
+              {(isAllowed('admin.logs') || isAllowed('admin.logs.cashier')) && <MenuLink to="/admin/logs/cashier">Logs - Cashier</MenuLink>}
+              {(isAllowed('admin.logs') || isAllowed('admin.logs.warehouse')) && <MenuLink to="/admin/logs/warehouse">Logs - Warehouse</MenuLink>}
             </>
           )}
 
           {mode === 'sales' && (
             <>
               {isAllowed('sales.home') && <MenuLink to="/sales">Sales Home</MenuLink>}
-              {/* add sales-specific quick links here if needed */}
+              {isAllowed('sales.logs') && <MenuLink to="/sales/logs">Logs</MenuLink>}
             </>
           )}
 
@@ -164,7 +161,7 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
             <>
               {isAllowed('warehouse.home') && <MenuLink to="/warehouse">Warehouse Home</MenuLink>}
               {isAllowed('warehouse.products') && <MenuLink to="/warehouse/products">Products</MenuLink>}
-              {/* add warehouse-specific quick links here if needed */}
+              {isAllowed('warehouse.logs') && <MenuLink to="/warehouse/logs">Logs</MenuLink>}
             </>
           )}
         </nav>

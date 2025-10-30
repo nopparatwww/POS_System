@@ -3,7 +3,11 @@ const User = require('../models/user')
 
 // role baseline mapping should match apiPermissionRoutes
 const roleBaseline = {
-  admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
+  admin: [
+    'admin.dashboard', 'admin.permissions', 'admin.products',
+    'admin.logs', // legacy umbrella
+    'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse'
+  ],
   cashier: ['sales.home'],
   warehouse: ['warehouse.home'],
 }

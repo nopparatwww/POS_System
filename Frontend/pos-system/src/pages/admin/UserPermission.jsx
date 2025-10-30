@@ -6,11 +6,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 const ROUTE_OPTIONS = [
   { key: 'admin.dashboard', label: 'Admin: Dashboard' },
   { key: 'admin.permissions', label: 'Admin: Permissions' },
-  { key: 'admin.logs', label: 'Admin: Logs' },
+  // Split logs into fine-grained permissions
+  { key: 'admin.logs.all', label: 'Admin: Logs (All)' },
+  { key: 'admin.logs.admin', label: 'Admin: Logs - Admin' },
+  { key: 'admin.logs.cashier', label: 'Admin: Logs - Cashier' },
+  { key: 'admin.logs.warehouse', label: 'Admin: Logs - Warehouse' },
   { key: 'admin.products', label: 'Admin: Products' },
   { key: 'sales.home', label: 'Sales: Home' },
+  { key: 'sales.logs', label: 'Sales: Logs' },
   { key: 'warehouse.home', label: 'Warehouse: Home' },
   { key: 'warehouse.products', label: 'Warehouse: Products' },
+  { key: 'warehouse.logs', label: 'Warehouse: Logs' },
 ]
 
 export default function UserPermission(){

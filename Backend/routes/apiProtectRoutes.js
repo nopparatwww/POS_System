@@ -6,6 +6,7 @@ const ensureAdmin = require("../middleware/ensureAdmin");
 const User = require("../models/user");
 const ActivityLog = require("../models/activityLog");
 const ensurePermission = require("../middleware/ensurePermission");
+const Permission = require("../models/permission");
 
 // Protected route example
 router.get("/dashboard", authenticateToken, ensureWithinShift, (req, res) => {
@@ -122,44 +123,70 @@ router.put('/users/:username', authenticateToken, ensureWithinShift, ensureAdmin
   }
 })
 
-// Admin: fetch activity logs with optional filters
-router.get('/logs', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
-  try {
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
-    const q = (req.query.q || '').toString().trim()
-    const user = (req.query.user || '').toString().trim()
-    const role = (req.query.role || '').toString().trim().toLowerCase()
+// Helper to build criteria and respond with paginated logs
+async function respondLogs(req, res, fixedRole = null) {
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
+  const q = (req.query.q || '').toString().trim()
+  const user = (req.query.user || '').toString().trim()
+  const roleFromQuery = (req.query.role || '').toString().trim().toLowerCase()
 
-    const criteria = {}
-    if (q) {
-      criteria.$or = [
-        { action: { $regex: q, $options: 'i' } },
-        { path: { $regex: q, $options: 'i' } },
-        { actorUsername: { $regex: q, $options: 'i' } },
-        { targetUsername: { $regex: q, $options: 'i' } },
-      ]
-    }
-    if (user) {
-      criteria.$and = (criteria.$and || [])
-      criteria.$and.push({ $or: [ { actorUsername: user }, { targetUsername: user } ] })
-    }
-    if (role && ['admin','cashier','warehouse'].includes(role)) {
-      criteria.actorRole = role
-    }
-
-    const total = await ActivityLog.countDocuments(criteria)
-    const items = await ActivityLog.find(criteria)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .lean()
-
-    res.json({ page, limit, total, items })
-  } catch (e) {
-    console.error(e)
-    res.status(500).json({ message: 'Server error' })
+  const criteria = {}
+  if (q) {
+    criteria.$or = [
+      { action: { $regex: q, $options: 'i' } },
+      { path: { $regex: q, $options: 'i' } },
+      { actorUsername: { $regex: q, $options: 'i' } },
+      { targetUsername: { $regex: q, $options: 'i' } },
+    ]
   }
+  if (user) {
+    criteria.$and = (criteria.$and || [])
+    criteria.$and.push({ $or: [ { actorUsername: user }, { targetUsername: user } ] })
+  }
+  const roleToUse = fixedRole || roleFromQuery
+  if (roleToUse && ['admin','cashier','warehouse'].includes(roleToUse)) {
+    criteria.actorRole = roleToUse
+  }
+
+  const total = await ActivityLog.countDocuments(criteria)
+  const items = await ActivityLog.find(criteria)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean()
+
+  res.json({ page, limit, total, items })
+}
+
+// Admin: fetch activity logs with optional filters (all roles)
+// Allow access if user has any of the fine-grained logs permissions (or legacy 'admin.logs')
+router.get('/logs', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission(['admin.logs','admin.logs.all','admin.logs.admin','admin.logs.cashier','admin.logs.warehouse']), async (req, res) => {
+  try { await respondLogs(req, res, null) } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+
+// Admin: logs by fixed role paths
+router.get('/logs/all', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
+  try { await respondLogs(req, res, null) } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+router.get('/logs/admin', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
+  try { await respondLogs(req, res, 'admin') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+router.get('/logs/cashier', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
+  try { await respondLogs(req, res, 'cashier') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+router.get('/logs/warehouse', authenticateToken, ensureWithinShift, ensureAdmin, ensurePermission('admin.logs'), async (req, res) => {
+  try { await respondLogs(req, res, 'warehouse') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+
+// Sales: own logs (cashier) without admin requirement
+router.get('/logs/sales', authenticateToken, ensureWithinShift, ensurePermission('sales.logs'), async (req, res) => {
+  try { await respondLogs(req, res, 'cashier') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+
+// Warehouse: own logs without admin requirement
+router.get('/logs/warehouse-self', authenticateToken, ensureWithinShift, ensurePermission('warehouse.logs'), async (req, res) => {
+  try { await respondLogs(req, res, 'warehouse') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
 })
 
 // Removed profile picture upload feature as per request

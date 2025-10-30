@@ -13,9 +13,15 @@ const ActivityLog = require('../models/activityLog');
 const PATH_TO_KEY = [
   { path: /^\/admin\/dashboard$/, key: 'admin.dashboard' },
   { path: /^\/admin\/permissions(?:\/.*)?$/, key: 'admin.permissions' },
-  { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
+  // Fine-grained logs mapping
+  { path: /^\/admin\/logs\/all$/, key: 'admin.logs.all' },
+  { path: /^\/admin\/logs\/admin$/, key: 'admin.logs.admin' },
+  { path: /^\/admin\/logs\/cashier$/, key: 'admin.logs.cashier' },
+  { path: /^\/admin\/logs\/warehouse$/, key: 'admin.logs.warehouse' },
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
+  { path: /^\/sales\/logs(?:\/.*)?$/, key: 'sales.logs' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
+  { path: /^\/warehouse\/logs(?:\/.*)?$/, key: 'warehouse.logs' },
   { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
@@ -40,7 +46,12 @@ router.get('/me', authenticateToken, ensureWithinShift, async (req, res) => {
     const perm = await Permission.findOne({ user: user._id }).lean();
     // baseline by role used as default when no explicit permissions set
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
+      admin: [
+        'admin.dashboard', 'admin.permissions', 'admin.products',
+        // grant all logs by default for admins
+        'admin.logs',
+        'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse'
+      ],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     };
@@ -141,7 +152,10 @@ router.post('/check', authenticateToken, ensureWithinShift, async (req, res) => 
 
     // baseline by role: admins can access admin routes, sales to sales, etc.
     const roleBaseline = {
-      admin: ['admin.dashboard', 'admin.permissions', 'admin.logs', 'admin.products'],
+      admin: [
+        'admin.dashboard', 'admin.permissions', 'admin.products',
+        'admin.logs', 'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse'
+      ],
       cashier: ['sales.home'],
       warehouse: ['warehouse.home'],
     };
