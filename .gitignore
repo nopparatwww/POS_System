@@ -23,9 +23,10 @@ Frontend/pos-system/.env.local
 !Frontend/pos-system/.env.example
 
 # Logs
-# Keep the folder but ignore actual log files. Allow a placeholder.
-logs/*
-!logs/.gitkeep
+# Keep only the ROOT /logs folder ignored; do not ignore nested folders named "logs" in src.
+# Allow a placeholder to keep the root folder tracked if needed.
+/logs/*
+!/logs/.gitkeep
 *.log
 npm-debug.log*
 yarn-debug.log*

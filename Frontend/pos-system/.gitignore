@@ -1,5 +1,6 @@
-# Logs
-logs
+# Logs (anchor to project root to avoid ignoring nested src/pages/**/logs)
+/logs/*
+!/logs/.gitkeep
 *.log
 npm-debug.log*
 yarn-debug.log*
