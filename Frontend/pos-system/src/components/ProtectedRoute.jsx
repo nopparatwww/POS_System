@@ -29,6 +29,7 @@ const PATH_TO_KEY = [
   { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
   { path: /^\/warehouse\/stockin(?:\/.*)?$/, key: 'warehouse.stockin' },
   { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
+  { path: /^\/warehouse\/lowstock(?:\/.*)?$/, key: 'warehouse.lowstock' },
   { path: /^\/warehouse\/stockaudit(?:\/.*)?$/, key: 'warehouse.stockaudit' },
 ]
 

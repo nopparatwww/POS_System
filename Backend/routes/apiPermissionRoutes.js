@@ -28,6 +28,7 @@ const PATH_TO_KEY = [
   { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
   { path: /^\/warehouse\/stockin(?:\/.*)?$/, key: 'warehouse.stockin' },
   { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
+  { path: /^\/warehouse\/lowstock(?:\/.*)?$/, key: 'warehouse.lowstock' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
 
@@ -55,10 +56,10 @@ router.get('/me', authenticateToken, ensureWithinShift, async (req, res) => {
         'admin.dashboard', 'admin.permissions', 'admin.products',
         // grant all logs by default for admins
         'admin.logs',
-        'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout'
+        'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout', 'admin.lowstock'
       ],
       cashier: ['sales.home'],
-      warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.logs'],
+      warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs'],
     };
     const allowRoutes = (perm?.allowRoutes && perm.allowRoutes.length > 0)
       ? perm.allowRoutes

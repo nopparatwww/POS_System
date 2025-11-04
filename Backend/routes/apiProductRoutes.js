@@ -160,4 +160,20 @@ router.delete('/:id', authenticateToken, ensureWithinShift, ensurePermission(['a
   }
 });
 
+router.get('/lowstock', authenticateToken, ensureWithinShift, ensurePermission(['admin.lowstock', 'warehouse.lowstock']), async (req, res) => {
+  try {
+    const items = await Product.find({
+      // ใช้นิพจน์ Mongoose เพื่อเปรียบเทียบ 2 ฟิลด์: stock < reorderLevel
+      $expr: { $lt: [ "$stock", "$reorderLevel" ] } 
+    })
+    .sort({ name: 1 }) // เรียงตามชื่อ
+    .lean();
+
+    res.json(items);
+  } catch (e) {
+    console.error('Get Low Stock Error:', e);
+    res.status(500).json({ message: 'Server error fetching low stock items.' });
+  }
+});
+
 module.exports = router;

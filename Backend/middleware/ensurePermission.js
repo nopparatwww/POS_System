@@ -6,10 +6,12 @@ const roleBaseline = {
   admin: [
     'admin.dashboard', 'admin.permissions', 'admin.products',
     'admin.logs', // legacy umbrella
-    'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout'
+    'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 
+    'admin.logs.warehouse', 'admin.stockin', 'admin.stockout' ,'admin.lowstock'
   ],
   cashier: ['sales.home'],
-  warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.logs'],
+  warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 
+  'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs'],
 }
 
 module.exports = function ensurePermission(requiredKey) {

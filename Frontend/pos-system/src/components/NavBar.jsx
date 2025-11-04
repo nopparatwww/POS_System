@@ -164,6 +164,7 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('warehouse.stockin') && <MenuLink to="/warehouse/stockin">Stock In</MenuLink>}
               {isAllowed('warehouse.stockout') && <MenuLink to="/warehouse/stockout">Stock Out</MenuLink>}
               {isAllowed('warehouse.stockaudit') && <MenuLink to="/warehouse/stockaudit">Stock Audit</MenuLink>}
+              {isAllowed('warehouse.lowstock') && <MenuLink to="/warehouse/lowstock">Low Stock Alert</MenuLink>}
               {isAllowed('warehouse.logs') && <MenuLink to="/warehouse/logs">Logs</MenuLink>}
             </>
           )}
