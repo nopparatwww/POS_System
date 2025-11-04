@@ -37,6 +37,9 @@ import CashierLogs from "./pages/admin/logs/CashierLogs";
 import WarehouseLogs from "./pages/admin/logs/WarehouseLogs";
 import ProductManagement from "./pages/admin/ProductManagement";
 import WarehouseProducts from "./pages/warehouse/Products";
+import Stockin from "./pages/warehouse/Stockin";
+import Stockout from "./pages/warehouse/Stockout";
+import Stockaudit from "./pages/warehouse/Stockaudit";
 import WarehouseLogsPage from "./pages/warehouse/Logs";
 import SalesLogsPage from "./pages/sales/Logs";
 
@@ -50,6 +53,9 @@ export default function App() {
           <Route path="/warehouse" element={<ProtectedRoute><Warehouse /></ProtectedRoute>} />
           <Route path="/warehouse/logs" element={<ProtectedRoute><WarehouseLogsPage /></ProtectedRoute>} />
           <Route path="/warehouse/products" element={<ProtectedRoute><WarehouseProducts /></ProtectedRoute>} />
+          <Route path="/warehouse/stockin" element={<ProtectedRoute><Stockin /></ProtectedRoute>} />
+          <Route path="/warehouse/stockout" element={<ProtectedRoute><Stockout /></ProtectedRoute>} />
+          <Route path="/warehouse/stockaudit" element={<ProtectedRoute><Stockaudit /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
           <Route path="/sales/logs" element={<ProtectedRoute><SalesLogsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
@@ -59,6 +65,7 @@ export default function App() {
             <Route path="permissions/create" element={<CreateUser />} />
             <Route path="permissions/:username" element={<UserPermission />} />
             <Route path="products" element={<ProductManagement />} />
+
             {/* Legacy single logs view */}
             <Route path="logs" element={<Navigate to="logs/all" replace />} />
             {/* New categorized logs */}

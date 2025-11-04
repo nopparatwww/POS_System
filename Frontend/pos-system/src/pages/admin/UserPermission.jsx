@@ -16,6 +16,9 @@ const ROUTE_OPTIONS = [
   { key: 'sales.logs', label: 'Sales: Logs' },
   { key: 'warehouse.home', label: 'Warehouse: Home' },
   { key: 'warehouse.products', label: 'Warehouse: Products' },
+  { key: 'warehouse.stockin', label: 'Warehouse: Stock In' },
+  { key: 'warehouse.stockout', label: 'Warehouse: Stock Out' },
+  { key: 'warehouse.stockaudit', label: 'Warehouse: Stock Audit' },
   { key: 'warehouse.logs', label: 'Warehouse: Logs' },
 ]
 

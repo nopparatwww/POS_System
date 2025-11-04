@@ -27,6 +27,9 @@ const PATH_TO_KEY = [
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
   { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
+  { path: /^\/warehouse\/stockin(?:\/.*)?$/, key: 'warehouse.stockin' },
+  { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
+  { path: /^\/warehouse\/stockaudit(?:\/.*)?$/, key: 'warehouse.stockaudit' },
 ]
 
 function pathToKey(pathname) {
