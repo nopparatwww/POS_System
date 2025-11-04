@@ -13,6 +13,7 @@ const apiProtectRoutes = require("./routes/apiProtectRoutes");
 const apiPermissionRoutes = require("./routes/apiPermissionRoutes");
 const apiPublicRoutes = require("./routes/apiPublicRoutes");
 const apiProductRoutes = require("./routes/apiProductRoutes");
+const apiStockRoutes = require("./routes/apiStockRoutes");
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/public", apiPublicRoutes);
 app.use("/api/protect", apiProtectRoutes);
 app.use("/api/permissions", apiPermissionRoutes);
 app.use("/api/protect/products", apiProductRoutes);
+app.use("/api/protect/stock", apiStockRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3000;
