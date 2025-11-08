@@ -4,7 +4,6 @@ import axios from 'axios'
 import NavBar from '../../components/NavBar'
 import TopBar from '../../components/TopBar'
 
-// (สมมติว่าคุณมี useDebounce hook อยู่แล้ว)
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value)
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function StockIn() {
   // Form state
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [quantity, setQuantity] = useState('')
-  
+
   // Product search state
   const [productSearch, setProductSearch] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -35,13 +34,16 @@ export default function StockIn() {
   // Recent entries state
   const [recentEntries, setRecentEntries] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(true)
+  const [recentPage, setRecentPage] = useState(1);
+  const [recentLimit, setRecentLimit] = useState(10);
+  const [recentTotal, setRecentTotal] = useState(0);
 
   // General state
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    function onResize(){ setIsNarrow(window.innerWidth < 900) }
+    function onResize() { setIsNarrow(window.innerWidth < 900) }
     onResize(); window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -50,8 +52,14 @@ export default function StockIn() {
     async function fetchRecent() {
       setLoadingRecent(true)
       try {
-        const res = await axios.get(`${API_BASE}/api/protect/stock/in/logs`)
-        setRecentEntries(res.data || [])
+        const res = await axios.get(`${API_BASE}/api/protect/stock/in/logs`, {
+          params: {
+            page: recentPage,
+            limit: recentLimit
+          }
+        })
+        setRecentEntries(res.data.items || [])
+        setRecentTotal(res.data.total || 0)
       } catch (e) {
         setError(e?.response?.data?.message || e.message)
       } finally {
@@ -59,7 +67,7 @@ export default function StockIn() {
       }
     }
     fetchRecent()
-  }, [API_BASE])
+  }, [API_BASE, recentPage, recentLimit])
 
   useEffect(() => {
     if (debouncedSearchTerm.length < 2) {
@@ -67,7 +75,7 @@ export default function StockIn() {
       setIsSearching(false)
       return
     }
-    
+
     async function search() {
       setIsSearching(true)
       try {
@@ -75,7 +83,7 @@ export default function StockIn() {
           params: { q: debouncedSearchTerm, limit: 10, sort: 'name' }
         })
         setSearchResults(res.data.items || [])
-      } catch (e) {} finally {
+      } catch (e) { } finally {
         setIsSearching(false)
       }
     }
@@ -116,23 +124,29 @@ export default function StockIn() {
         quantity: qty,
       }
       const res = await axios.post(`${API_BASE}/api/protect/stock/in`, payload)
-      
+
       // อัปเดตสต็อกใน UI ทันที (เพื่อให้กล่อง "Current Stock" อัปเดต)
       setSelectedProduct(prev => ({
         ...prev,
         stock: res.data.quantity
       }));
-      
-      setRecentEntries([res.data, ...recentEntries])
+
+      // รีเฟรชตารางไปหน้า 1
+      if (recentPage === 1) {
+        setRecentEntries(prev => [res.data, ...prev.slice(0, recentLimit - 1)]);
+        setRecentTotal(prev => prev + 1);
+      } else {
+        setRecentPage(1);
+      }
       clearForm()
-      
+
     } catch (e) {
       setError(e?.response?.data?.message || e.message)
     } finally {
       setSubmitting(false)
     }
   }
-  
+
   // (Styles...)
   const cardStyle = {
     background: '#fff',
@@ -164,6 +178,18 @@ export default function StockIn() {
     borderBottom: '1px solid #f3f4f6',
     color: '#374151'
   }
+  const pagerBtnStyle = (disabled) => ({
+    padding: '8px 14px',
+    borderRadius: 999,
+    border: '1px solid #e5e7eb',
+    background: '#ffffff',
+    color: disabled ? '#94a3b8' : '#0f172a',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+    transition: 'transform 100ms ease, background 120ms ease',
+  });
+
+  const recentTotalPages = useMemo(() => Math.max(1, Math.ceil(recentTotal / recentLimit)), [recentTotal, recentLimit]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: isNarrow ? 'column' : 'row' }}>
@@ -172,13 +198,13 @@ export default function StockIn() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb' }}>
         {!isNarrow && <TopBar />}
         <div style={{ flex: 1, padding: 'clamp(16px, 3vw, 32px)', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
-          
+
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 24, color: '#111827' }}>Stock In</h1>
 
           {/* --- Form Card (ปรับปรุง Layout) --- */}
           <form onSubmit={handleSubmit} style={{ ...cardStyle, marginBottom: 32 }}>
             <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 20 }}>
-              
+
               {/* === Column 1: Product Select & Stock Display === */}
               <div style={{ position: 'relative' }}>
                 <label htmlFor="productSearch" style={labelStyle}>Select Product</label>
@@ -201,7 +227,7 @@ export default function StockIn() {
                       setSelectedProduct(null)
                       setProductSearch('')
                     }}
-                    style={{ position: 'absolute', right: 8, top: 34, background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}
+                    style={{ position: 'absolute', top: 39, right: 10, background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}
                   >
                     Clear
                   </button>
@@ -233,9 +259,9 @@ export default function StockIn() {
 
                 {/* --- (ย้ายมาไว้ตรงนี้) แสดง Current Stock --- */}
                 {selectedProduct && (
-                  <div style={{ 
-                    background: '#f3f4f6', 
-                    padding: '12px 16px', 
+                  <div style={{
+                    background: '#f3f4f6',
+                    padding: '12px 16px',
                     borderRadius: 8,
                     marginTop: 8 // <-- เพิ่ม margin
                   }}>
@@ -320,7 +346,7 @@ export default function StockIn() {
                     recentEntries.map(entry => (
                       <tr key={entry._id}>
                         <td style={tdStyle}>
-                          {entry.product?.name || entry.productName} 
+                          {entry.product?.name || entry.productName}
                           <span style={{ color: '#6b7280', fontSize: 12 }}> ({entry.product?.sku || entry.sku})</span>
                         </td>
                         <td style={tdStyle}>{entry.quantity}</td>
@@ -331,6 +357,32 @@ export default function StockIn() {
                 </tbody>
               </table>
             </div>
+
+            {/* --- Pagination Controls --- */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  aria-label="Previous page"
+                  onClick={() => setRecentPage(p => Math.max(1, p - 1))}
+                  disabled={recentPage <= 1}
+                  style={pagerBtnStyle(recentPage <= 1)}
+                >
+                  Prev
+                </button>
+                <div style={{ padding: '6px 10px', color: '#475569', fontWeight: 700 }}>
+                  Page {recentPage} of {recentTotalPages}
+                </div>
+                <button
+                  aria-label="Next page"
+                  onClick={() => setRecentPage(p => Math.min(recentTotalPages, p + 1))}
+                  disabled={recentPage >= recentTotalPages}
+                  style={pagerBtnStyle(recentPage >= recentTotalPages)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </main>

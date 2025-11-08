@@ -82,13 +82,23 @@ router.post('/in', authenticateToken, ensureWithinShift, ensurePermission(STOCK_
 // GET /api/protect/stock/in/logs
 router.get('/in/logs', authenticateToken, ensureWithinShift, ensurePermission(STOCK_IN_PERMISSION), async (req, res) => {
   try {
-    const logs = await StockInLog.find()
-      .sort({ createdAt: -1 }) // เรียงใหม่สุดก่อน
-      .limit(20) // เอาแค่ 20 รายการล่าสุด
-      .populate('product', 'name sku')
-      .lean(); // .lean() เพื่อให้อ่านข้อมูลเร็วขึ้น
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10)); // Default 10
     
-    res.json(logs);
+    const criteria = {}; // (อนาคตสามารถเพิ่ม Filter ตรงนี้ได้)
+    
+    const total = await StockInLog.countDocuments(criteria);
+    // --- AAA สิ้นสุด Logic การแบ่งหน้า ---
+
+    const logs = await StockInLog.find(criteria) // <-- ใช้ criteria
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit) // <-- เพิ่ม .skip()
+      .limit(limit)            // <-- ใช้ limit ที่รับมา
+      .populate('product', 'name sku') 
+      .lean();
+    
+    // --- VVV แก้ไขรูปแบบการตอบกลับ VVV ---
+    res.json({ page, limit, total, items: logs });
   } catch (e) {
     console.error('Get Stock Logs Error:', e);
     res.status(500).json({ message: 'Server error fetching stock logs.' });
@@ -177,13 +187,19 @@ router.post('/out', authenticateToken, ensureWithinShift, ensurePermission(STOCK
 // ดึงประวัติการเบิกออกล่าสุด
 router.get('/out/logs', authenticateToken, ensureWithinShift, ensurePermission(STOCK_OUT_PERMISSION), async (req, res) => {
   try {
-    const logs = await StockOutLog.find()
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const criteria = {};
+    const total = await StockOutLog.countDocuments(criteria);
+
+    const logs = await StockOutLog.find(criteria)
       .sort({ createdAt: -1 })
-      .limit(20)
-      .populate('product', 'name sku') // <-- ใช้ .populate() เพื่อดึงชื่อสด
+      .skip((page - 1) * limit) 
+      .limit(limit)          
+      .populate('product', 'name sku')
       .lean();
     
-    res.json(logs);
+    res.json({ page, limit, total, items: logs });
   } catch (e) {
     console.error('Get Stock Out Logs Error:', e);
     res.status(500).json({ message: 'Server error fetching stock out logs.' });

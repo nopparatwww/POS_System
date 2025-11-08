@@ -4,9 +4,6 @@ import axios from 'axios'
 import NavBar from '../../components/NavBar'
 import TopBar from '../../components/TopBar'
 
-// --- Custom Hook: useDebounce ---
-// (หากคุณยังไม่ได้สร้างไฟล์นี้ ให้คัดลอกไปไว้ที่ /src/utils/useDebounce.js)
-// (หรือจะวางไว้บนสุดของไฟล์นี้ก็ได้)
 function useDebounce(value, delay) {
   const [debouncedValue, setDebouncedValue] = useState(value)
   useEffect(() => {
@@ -40,6 +37,9 @@ export default function Stockout() {
   // Recent entries state
   const [recentEntries, setRecentEntries] = useState([])
   const [loadingRecent, setLoadingRecent] = useState(true)
+  const [recentPage, setRecentPage] = useState(1);
+  const [recentLimit, setRecentLimit] = useState(10);
+  const [recentTotal, setRecentTotal] = useState(0);
 
   // General state
   const [error, setError] = useState(null)
@@ -57,8 +57,14 @@ export default function Stockout() {
     async function fetchRecent() {
       setLoadingRecent(true)
       try {
-        const res = await axios.get(`${API_BASE}/api/protect/stock/out/logs`) // <-- API ใหม่
-        setRecentEntries(res.data || [])
+        const res = await axios.get(`${API_BASE}/api/protect/stock/out/logs`, {
+          params: {
+            page: recentPage,
+            limit: recentLimit
+          }
+        })
+        setRecentEntries(res.data.items || [])
+        setRecentTotal(res.data.total || 0)
       } catch (e) {
         setError(e?.response?.data?.message || e.message)
       } finally {
@@ -66,7 +72,7 @@ export default function Stockout() {
       }
     }
     fetchRecent()
-  }, [API_BASE])
+  }, [API_BASE, recentPage, recentLimit])
 
   // Effect for product search
   useEffect(() => {
@@ -126,6 +132,11 @@ export default function Stockout() {
       return
     }
 
+    if (selectedProduct.stock < qty) { 
+      setError(`Cannot stock out. Only ${selectedProduct.stock} items remaining.`);
+      return;
+    }
+
     setSubmitting(true)
     setError(null)
     try {
@@ -134,10 +145,23 @@ export default function Stockout() {
         quantity: qty,
         reason: reason.trim(), // <--
       }
-      const res = await axios.post(`${API_BASE}/api/protect/stock/out`, payload) // <-- API ใหม่
+      const res = await axios.post(`${API_BASE}/api/protect/stock/out`, payload)
+
+      // --- VVV นี่คือจุดแก้ไขที่ถูกต้อง VVV ---
+      // อัปเดตสต็อกใน UI ทันที โดยการลบ "qty" (จำนวนที่กรอก) ออกจากสต็อกเดิม
+      setSelectedProduct(prev => ({
+        ...prev,
+        stock: (prev.stock || 0) - qty 
+      }));
+      // --- AAA สิ้นสุดการแก้ไข ---
       
-      // Add new entry to top of recent list
-      setRecentEntries([res.data, ...recentEntries])
+      // ส่วนนี้ถูกต้องแล้ว (เหมือน StockIn)
+      if (recentPage === 1) {
+        setRecentEntries(prev => [res.data, ...prev.slice(0, recentLimit - 1)]);
+        setRecentTotal(prev => prev + 1);
+      } else {
+        setRecentPage(1);
+      }
       clearForm()
       
     } catch (e) {
@@ -179,6 +203,19 @@ export default function Stockout() {
     color: '#374151'
   }
 
+  const pagerBtnStyle = (disabled) => ({
+      padding: '8px 14px',
+      borderRadius: 999,
+      border: '1px solid #e5e7eb',
+      background: '#ffffff',
+      color: disabled ? '#94a3b8' : '#0f172a',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      boxShadow: '0 6px 14px rgba(0,0,0,0.06)',
+      transition: 'transform 100ms ease, background 120ms ease',
+    });
+  
+    const recentTotalPages = useMemo(() => Math.max(1, Math.ceil(recentTotal / recentLimit)), [recentTotal, recentLimit]);
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: isNarrow ? 'column' : 'row' }}>
       {!isNarrow && <NavBar mode="warehouse" />}
@@ -202,6 +239,7 @@ export default function Stockout() {
               {/* Product Search */}
               <div style={{ position: 'relative' }}>
                 <label htmlFor="productSearch" style={labelStyle}>Select Product</label>
+                <div></div>
                 <input
                   id="productSearch"
                   type="text"
@@ -221,7 +259,7 @@ export default function Stockout() {
                       setSelectedProduct(null)
                       setProductSearch('')
                     }}
-                    style={{ position: 'absolute', right: 8, top: 34, background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}
+                    style={{ position: 'absolute', right: 8, top: 39, background: '#ef4444', color: 'white', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}
                   >
                     Clear
                   </button>
@@ -349,6 +387,32 @@ export default function Stockout() {
                 </tbody>
               </table>
             </div>
+
+             {/* --- Pagination Controls --- */}
+             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  aria-label="Previous page"
+                  onClick={() => setRecentPage(p => Math.max(1, p - 1))}
+                  disabled={recentPage <= 1}
+                  style={pagerBtnStyle(recentPage <= 1)}
+                >
+                  Prev
+                </button>
+                <div style={{ padding: '6px 10px', color: '#475569', fontWeight: 700 }}>
+                  Page {recentPage} of {recentTotalPages}
+                </div>
+                <button
+                  aria-label="Next page"
+                  onClick={() => setRecentPage(p => Math.min(recentTotalPages, p + 1))}
+                  disabled={recentPage >= recentTotalPages}
+                  style={pagerBtnStyle(recentPage >= recentTotalPages)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       </main>
