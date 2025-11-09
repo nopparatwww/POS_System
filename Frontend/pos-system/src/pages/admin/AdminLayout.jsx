@@ -18,12 +18,15 @@ export default function AdminLayout(){
   }, [])
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '220px 1fr', gap: 0 }}>
+    // NavBar is now fixed-positioned. We offset the main content by the
+    // sidebar width when the viewport is wide so the TopBar and page content
+    // are not covered.
+    <div style={{ minHeight: '100vh', position: 'relative' }}>
       {/* Left sidebar (collapsible on small screens) */}
       {!isNarrow && <NavBar />}
 
-      {/* Main content area */}
-      <main style={{ background: '#f7fbfa', minHeight: '100vh', padding: 0, boxSizing: 'border-box', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      {/* Main content area - add left margin to compensate for fixed NavBar */}
+      <main style={{ background: '#f7fbfa', minHeight: '100vh', padding: 0, boxSizing: 'border-box', position: 'relative', display: 'flex', flexDirection: 'column', marginLeft: isNarrow ? 0 : 220 }}>
         {/* Top bar with hamburger on narrow screens */}
         <div style={{ position: 'relative' }}>
           <div style={{ width: '100%', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box', borderBottom: '1px solid rgba(0,0,0,0.06)', background: '#fff' }}>

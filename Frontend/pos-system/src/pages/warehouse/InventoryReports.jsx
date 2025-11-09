@@ -134,14 +134,14 @@ export default function InventoryReports() {
           </div>
         </div>
       )}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb' }}>
+  <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb', marginLeft: isNarrow ? 0 : 220 }}>
         {!isNarrow && <TopBar />}
-        <div style={{ flex: 1, padding: 'clamp(16px, 3vw, 32px)', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+  <div style={{ flex: 1, padding: 'clamp(16px, 3vw, 32px)', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
           
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 24, color: '#111827' }}>Inventory Reports</h1>
 
           {/* --- Stat Cards --- */}
-          <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: 20, marginBottom: 32 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : 'repeat(4, 1fr)', gap: 20, marginBottom: 32 }}>
             <StatCard title="Total Products" value={loadingStats ? '...' : stats.totalProducts} />
             <StatCard title="Total Value" value={loadingStats ? '...' : `$${formatCurrency(stats.totalValue)}`} />
             <StatCard title="Low Stock Items" value={loadingStats ? '...' : stats.lowStock} bgColor="#fde68a" />

@@ -120,19 +120,8 @@ router.put('/:username', authenticateToken, ensureWithinShift, ensureAdmin, ensu
       { new: true, upsert: true }
     );
 
-    // log action
-    try {
-      await ActivityLog.create({
-        action: 'permissions.update',
-        actorUsername: req.user?.username || 'unknown',
-        actorRole: req.user?.role || 'unknown',
-        targetUsername: username,
-        method: req.method,
-        path: req.originalUrl,
-        status: 200,
-        details: { allowRoutes: doc.allowRoutes, denyRoutes: doc.denyRoutes }
-      })
-    } catch (e) { /* ignore */ }
+    // log action (non-blocking)
+    try { const { logActivity } = require('../utils/activityLogger'); await logActivity(req, 'permissions.update', 200, { allowRoutes: doc.allowRoutes, denyRoutes: doc.denyRoutes, targetUsername: username }) } catch (e) { /* ignore */ }
 
     res.json({
       username: user.username,

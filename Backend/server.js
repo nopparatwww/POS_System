@@ -49,6 +49,10 @@ app.use("/api/protect/products", apiProductRoutes);
 app.use("/api/protect/stock", apiStockRoutes);
 app.use("/api/protect/reports", apiReportRoutes);
 
+// Debug-only routes removed from the server; use protected endpoints
+// (e.g. /api/protect/products/lowstock or /api/protect/products/lowstock-robust)
+// for production-safe lowstock checks.
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

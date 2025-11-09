@@ -11,7 +11,7 @@ export default function AdminLogs() {
   const [page, setPage] = useState(parseInt(searchParams.get('page') || '1', 10))
   const [limit, setLimit] = useState(20)
   const [q, setQ] = useState(searchParams.get('q') || '')
-  const [user, setUser] = useState(searchParams.get('user') || '')
+  const [role, setRole] = useState(searchParams.get('role') || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -23,8 +23,8 @@ export default function AdminLogs() {
         const params = new URLSearchParams()
         params.set('page', String(page))
         params.set('limit', String(limit))
-        if (q) params.set('q', q)
-        if (user) params.set('user', user)
+  if (q) params.set('q', q)
+  if (role) params.set('role', role)
         const res = await axios.get(`${API_BASE}/api/protect/logs?${params.toString()}`)
         setItems(res.data.items || [])
         setTotal(res.data.total || 0)
@@ -35,15 +35,15 @@ export default function AdminLogs() {
       }
     }
     load()
-  }, [API_BASE, page, limit, q, user])
+  }, [API_BASE, page, limit, q, role])
 
   useEffect(() => {
     const params = {}
     if (q) params.q = q
-    if (user) params.user = user
+    if (role) params.role = role
     if (page > 1) params.page = String(page)
     setSearchParams(params, { replace: true })
-  }, [q, user, page, setSearchParams])
+  }, [q, role, page, setSearchParams])
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / limit)), [total, limit])
 
@@ -54,45 +54,64 @@ export default function AdminLogs() {
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <input
-            placeholder="Search keyword (action, path, user)"
+            placeholder="Search keyword (action, path)"
             value={q}
             onChange={e => { setPage(1); setQ(e.target.value) }}
             style={{ flex: '1 1 280px', minWidth: 200, padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}
           />
-          <input
-            placeholder="Username filter"
-            value={user}
-            onChange={e => { setPage(1); setUser(e.target.value) }}
-            style={{ width: 220, padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6 }}
-          />
+          <select
+            aria-label="Role filter"
+            value={role}
+            onChange={e => { setPage(1); setRole(e.target.value) }}
+            style={{ width: 180, padding: '10px 12px', border: '1px solid #c7d0da', borderRadius: 6, background: '#fff' }}
+          >
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="cashier">Cashier</option>
+            <option value="warehouse">Warehouse</option>
+          </select>
         </div>
 
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 2fr', gap: 0, background: '#f8fafc', padding: '10px 12px', fontWeight: 600 }}>
-            <div>Action</div>
-            <div>Actor</div>
-            <div>Target</div>
-            <div>Status</div>
-            <div>When</div>
-          </div>
-          {loading ? (
-            <div style={{ padding: 12 }}>Loading…</div>
-          ) : items.length === 0 ? (
-            <div style={{ padding: 12, color: '#64748b' }}>No logs</div>
-          ) : (
-            items.map((it) => (
-              <div key={it._id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr 2fr', padding: '10px 12px', borderTop: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{it.action}</div>
-                  <div style={{ color: '#64748b', fontSize: 12 }}>{it.method} {it.path}</div>
-                </div>
-                <div>{it.actorUsername} <span style={{ color: '#64748b' }}>({it.actorRole})</span></div>
-                <div>{it.targetUsername || '-'}</div>
-                <div>{it.status ?? '-'}</div>
-                <div title={it.createdAt}>{new Date(it.createdAt).toLocaleString()}</div>
-              </div>
-            ))
-          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead style={{ background: '#f8fafc', fontWeight: 600 }}>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '10px 12px' }}>Action</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', width: 180 }}>Actor</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', width: 160 }}>Target</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', width: 100 }}>Status</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', width: 220 }}>When</th>
+              </tr>
+            </thead>
+            {loading ? (
+              <tbody>
+                <tr>
+                  <td colSpan={5} style={{ padding: 12 }}>Loading…</td>
+                </tr>
+              </tbody>
+            ) : items.length === 0 ? (
+              <tbody>
+                <tr>
+                  <td colSpan={5} style={{ padding: 12, color: '#64748b' }}>No logs</td>
+                </tr>
+              </tbody>
+            ) : (
+              <tbody>
+                {items.map((it) => (
+                  <tr key={it._id} style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                      <div style={{ fontWeight: 600 }}>{it.action}</div>
+                      <div style={{ color: '#64748b', fontSize: 12 }}>{it.method} {it.path}</div>
+                    </td>
+                    <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>{it.actorUsername} <div style={{ color: '#64748b', fontSize: 12 }}>({it.actorRole})</div></td>
+                    <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>{it.targetUsername || '-'}</td>
+                    <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>{it.status ?? '-'}</td>
+                    <td style={{ padding: '10px 12px', verticalAlign: 'top' }} title={it.createdAt}>{new Date(it.createdAt).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            )}
+          </table>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>

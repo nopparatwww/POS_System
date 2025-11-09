@@ -104,6 +104,8 @@ router.put('/users/:username', authenticateToken, ensureWithinShift, ensureAdmin
         }
       })
     } catch (e) { /* ignore log error */ }
+      // log action
+      try { const { logActivity } = require('../utils/activityLogger'); await logActivity(req, 'user.update', 200, { changedRole: !!role, changedPassword: typeof password === 'string' && password.trim().length > 0, profileUpdated: Boolean(typeof firstName !== 'undefined' || typeof lastName !== 'undefined' || typeof birthdate !== 'undefined' || typeof phone !== 'undefined' || typeof email !== 'undefined' || typeof gender !== 'undefined' || typeof shiftStart !== 'undefined' || typeof shiftEnd !== 'undefined'), targetUsername: username }) } catch (e) { /* ignore log error */ }
     res.json({
       username: user.username,
       role: user.role,
@@ -187,6 +189,53 @@ router.get('/logs/sales', authenticateToken, ensureWithinShift, ensurePermission
 // Warehouse: own logs without admin requirement
 router.get('/logs/warehouse-self', authenticateToken, ensureWithinShift, ensurePermission('warehouse.logs'), async (req, res) => {
   try { await respondLogs(req, res, 'warehouse') } catch (e) { console.error(e); res.status(500).json({ message: 'Server error' }) }
+})
+
+// Warehouse: activity logs related to warehouse actions (includes actions by warehouse users
+// and actions affecting warehouse paths like stock in/out). This endpoint is accessible to
+// users with the `warehouse.logs` permission (so warehouse staff can see relevant system activity).
+router.get('/logs/warehouse-activity', authenticateToken, ensureWithinShift, ensurePermission('warehouse.logs'), async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))
+    const q = (req.query.q || '').toString().trim()
+
+    // Build q (search) criteria if provided
+    let qCriteria = null
+    if (q) {
+      qCriteria = {
+        $or: [
+          { action: { $regex: q, $options: 'i' } },
+          { path: { $regex: q, $options: 'i' } },
+          { actorUsername: { $regex: q, $options: 'i' } },
+          { targetUsername: { $regex: q, $options: 'i' } },
+        ]
+      }
+    }
+
+    // Warehouse-related criteria: either actorRole is 'warehouse', or action/path looks like warehouse/stock/product changes
+    const warehouseCriteria = {
+      $or: [
+        { actorRole: 'warehouse' },
+        { action: { $regex: '^(stock|warehouse|product)\\.' } },
+        { path: { $regex: '/warehouse' } },
+      ]
+    }
+
+    const criteria = qCriteria ? { $and: [qCriteria, warehouseCriteria] } : warehouseCriteria
+
+    const total = await ActivityLog.countDocuments(criteria)
+    const items = await ActivityLog.find(criteria)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean()
+
+    res.json({ page, limit, total, items })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ message: 'Server error' })
+  }
 })
 
 // Removed profile picture upload feature as per request

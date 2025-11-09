@@ -1341,3 +1341,66 @@ const ActivityLogSchema = new mongoose.Schema({ // สร้างสคีม�
 
 module.exports = mongoose.model('ActivityLog', ActivityLogSchema) // ส่งออกโมเดล
 ```
+
+---
+
+## API updates (อธิบายทีละบรรทัดของ endpoints ที่อัพเดท/เพิ่มในวันนี้)
+
+ต่อไปนี้เป็นสรุป API ที่มีการเพิ่มหรือปรับปรุงใน session วันนี้ พร้อมคำอธิบายแบบไล่บรรทัด (line-by-line style) เพื่อให้สามารถตรวจสอบผลกระทบและเข้าใจ logic ได้รวดเร็ว
+
+### 1) GET /api/protect/logs/warehouse-activity
+- ตำแหน่ง: `Backend/routes/apiProtectRoutes.js`
+- จุดประสงค์: ให้ผู้มีสิทธิ์ `warehouse.logs` ดึงกิจกรรมที่เกี่ยวข้องกับคลังสินค้า (รวมการกระทำของพนักงาน warehouse และการกระทำในระบบที่กระทบคลัง)
+- ไล่บรรทัดสำคัญและความหมาย:
+  - `router.get('/logs/warehouse-activity', authenticateToken, ensureWithinShift, ensurePermission('warehouse.logs'), async (req, res) => {` — ประกาศ route: ต้องผ่าน JWT, ตรวจช่วงกะ, และตรวจ permission
+  - `const page = Math.max(1, parseInt(req.query.page, 10) || 1)` — อ่านพารามิเตอร์ page และตั้งค่า default/ขอบเขต
+  - `const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20))` — อ่าน limit และจำกัดสูงสุด 100
+  - `const q = (req.query.q || '').toString().trim()` — คำค้นหาแบบ optional
+  - เมื่อมี q สร้าง `qCriteria` เพื่อค้นใน fields: action, path, actorUsername, targetUsername (ใช้ regex แบบ case-insensitive)
+  - สร้าง `warehouseCriteria` เพื่อจับกิจกรรมที่เกี่ยวกับ warehouse:
+    - `{ actorRole: 'warehouse' }` — การกระทำโดยผู้ที่มีบทบาท warehouse
+    - `{ action: { $regex: '^(stock|warehouse|product)\\.' } }` — การกระทำที่เป็น stock./warehouse./product.* เช่น stock.in, product.update
+    - `{ path: { $regex: '/warehouse' } }` — การเรียก API ที่มี path /warehouse
+  - `const criteria = qCriteria ? { $and: [qCriteria, warehouseCriteria] } : warehouseCriteria` — ผสานเงื่อนไขค้นหา (ถ้ามี) กับ criteria ของ warehouse
+  - `const total = await ActivityLog.countDocuments(criteria)` — นับจำนวนรวมสำหรับ pagination
+  - `const items = await ActivityLog.find(criteria).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean()` — ดึงรายการเรียงตามเวลาย้อนกลับ พร้อม pagination
+  - `res.json({ page, limit, total, items })` — ส่งผลลัพธ์ให้ frontend
+
+### 2) GET /api/protect/products/:id
+- ตำแหน่ง: `Backend/routes/apiProductRoutes.js`
+- จุดประสงค์: ให้ frontend ดึงข้อมูลสินค้า (name, sku, ฯลฯ) ตาม id เพื่อ enrich UI (เช่นแสดงชื่อสินค้าในหน้า Logs)
+- ไล่บรรทัดสำคัญและความหมาย:
+  - `router.get('/:id', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {` — ประกาศ route: ต้องมี JWT, ตรวจ shift, ตรวจ permission (admin.products หรือ warehouse.products)
+  - `const prod = await Product.findById(req.params.id).lean()` — ดึง product แบบ lean (plain object)
+  - `if (!prod) return res.status(404).json({ message: 'Not found' })` — ถ้าไม่พบ ส่ง 404 (สาเหตุที่ frontend ได้ 404 เมื่อ id ถูกลบ)
+  - `res.json(prod)` — ส่งข้อมูล product กลับ
+
+### 3) Product CRUD — เพิ่มการบันทึก ActivityLog (non-blocking)
+- ตำแหน่ง: `Backend/routes/apiProductRoutes.js`
+- สิ่งที่เพิ่ม/เปลี่ยน:
+  - POST `/api/protect/products`: หลังสร้าง product เรียก `logActivity(req, 'product.create', 201, { sku: doc.sku, name: doc.name })` — บันทึก sku และ name ไว้ใน log โดยตรง (snapshot)
+  - PUT `/api/protect/products/:id`: หลังอัพเดตเรียก `logActivity(req, 'product.update', 200, { id: String(doc._id) })` — บันทึก id (ควรขยายเป็น sku/name หากต้องการให้ logสมบูรณ์)
+  - DELETE `/api/protect/products/:id`: หลังลบเรียก `logActivity(req, 'product.delete', 200, { id: String(doc._id), sku: doc.sku })` — บันทึก id และ sku ของสินค้าที่ถูกลบ
+  - เหตุผล: การบันทึกข้อมูลสำคัญลงใน `ActivityLog.details` ช่วยให้ UI แสดงข้อมูลได้แม้สินค้าถูกลบหลังจากนั้น และทำให้ audit มีข้อมูล snapshot
+
+### 4) Stock APIs — stock.in / stock.out (logging enriched)
+- ตำแหน่ง: `Backend/routes/apiStockRoutes.js`
+- POST `/api/protect/stock/in` (stock in):
+  - ตรวจ input `productId`, `quantity` และแปลงเป็นตัวเลข
+  - อัปเดต Product ด้วย `findByIdAndUpdate(..., { $inc: { stock: numQty } }, { new: true })` — ใช้ $inc เพื่อให้เป็น atomic
+  - สร้าง `StockInLog` เก็บ `productName`, `sku`, `quantity`, `actorUsername` — snapshot สำหรับ recent entries
+  - เรียก `logActivity(req, 'stock.in', 201, { productId: updatedProduct._id, sku: updatedProduct.sku, quantity: numQty, newStock: updatedProduct.stock })` — บันทึกรายละเอียดเชิงตัวเลขเพื่อให้ Logs UI แสดงการเปลี่ยนแปลงได้
+- POST `/api/protect/stock/out` (stock out):
+  - ตรวจ input `productId`, `quantity`, `reason` และเช็คว่ามีสต็อกเพียงพอ
+  - อัปเดต Product ด้วย `findByIdAndUpdate(..., { $inc: { stock: -numQty } }, { new: true })`
+  - สร้าง `StockOutLog` เก็บ `productName`, `sku`, `quantity`, `reason`, `actorUsername`
+  - เรียก `logActivity(req, 'stock.out', 201, { productId: updatedProduct._id, sku: updatedProduct.sku, quantity: numQty, reason: reason.trim(), newStock: updatedProduct.stock })`
+
+### หมายเหตุเกี่ยวกับ 404 ที่ frontend เจอ
+- สาเหตุ: เมื่อ frontend เรียก `GET /api/protect/products/:id` กับ id ที่ถูกลบ จะได้ 404 ตามการออกแบบของ API
+- บรรเทาปัญหา (frontend-side): โค้ด frontend เปลี่ยนไปใช้ `Promise.allSettled` เมื่อ fetch หลาย productIds และเก็บ sentinel `{ missing: true, sku }` ลงใน `productMap` เพื่อให้ UI แสดง "Deleted product" แทนการพัง
+
+### ข้อเสนอแนะเพิ่มเติม (แนะนำให้ทำ)
+- ตรวจ sweep backend endpoints ที่ทำ DB mutation ให้แนใจว่าทุกจุดที่เปลี่ยนสินค้า/สต็อก/permission มีการเรียก `logActivity` และบันทึก `productName`/`sku` ลงใน `details` (ทำให้ logs เป็น snapshot)
+- หากต้องการ ผมสามารถทำ patch เล็ก ๆ เพิ่ม `productName`/`sku` ใน `product.update` และรันค้นหา (grep) เพื่อปิดช่องว่างที่เหลือได้
+
