@@ -60,7 +60,7 @@ router.post('/in', authenticateToken, ensureWithinShift, ensurePermission(STOCK_
       console.error('Failed to create activity log for stock.in:', logErr);
     }
 
-    // 5. ตอบกลับด้วย Log ที่สร้างใหม่ (Frontend จะใช้แสดงใน 'Recent Entries')
+    // ตอบกลับด้วย Log ที่สร้างใหม่ (Frontend จะใช้แสดงใน 'Recent Entries')
     res.status(201).json(stockLog);
 
   } catch (e) {
@@ -77,7 +77,6 @@ router.get('/in/logs', authenticateToken, ensureWithinShift, ensurePermission(ST
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10)); // Default 10
     const criteria = {}; // (อนาคตสามารถเพิ่ม Filter ตรงนี้ได้)
     const total = await StockInLog.countDocuments(criteria);
-    // --- AAA สิ้นสุด Logic การแบ่งหน้า ---
 
     const logs = await StockInLog.find(criteria) // <-- ใช้ criteria
       .sort({ createdAt: -1 })
@@ -86,7 +85,6 @@ router.get('/in/logs', authenticateToken, ensureWithinShift, ensurePermission(ST
       .populate('product', 'name sku') 
       .lean();
     
-    // --- VVV แก้ไขรูปแบบการตอบกลับ VVV ---
     res.json({ page, limit, total, items: logs });
   } catch (e) {
     console.error('Get Stock Logs Error:', e);
@@ -220,11 +218,10 @@ router.post('/audit', authenticateToken, ensureWithinShift, ensurePermission(STO
       sku: product.sku,
       systemStock: systemStock,
       actualStock: numActual,
-      quantity: difference, // <--- (แก้ไข) บันทึก "ผลต่าง" (Delta)
+      quantity: difference,
       actorUsername: username,
     });
 
-    // (ActivityLog ... ไม่ต้องแก้)
     try {
       await ActivityLog.create({
         action: 'stock.audit', actorUsername: username, actorRole: role,

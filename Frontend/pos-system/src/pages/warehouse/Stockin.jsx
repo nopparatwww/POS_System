@@ -126,9 +126,13 @@ export default function StockIn() {
       const res = await axios.post(`${API_BASE}/api/protect/stock/in`, payload)
 
       // อัปเดตสต็อกใน UI ทันที (เพื่อให้กล่อง "Current Stock" อัปเดต)
+      // setSelectedProduct(prev => ({
+      //   ...prev,
+      //   stock: res.data.quantity
+      // }));
       setSelectedProduct(prev => ({
         ...prev,
-        stock: res.data.quantity
+        stock: (prev.stock || 0) + qty // <-- ใช้ qty ที่กรอก
       }));
 
       // รีเฟรชตารางไปหน้า 1
@@ -201,7 +205,6 @@ export default function StockIn() {
 
           <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 24, color: '#111827' }}>Stock In</h1>
 
-          {/* --- Form Card (ปรับปรุง Layout) --- */}
           <form onSubmit={handleSubmit} style={{ ...cardStyle, marginBottom: 32 }}>
             <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 20 }}>
 
@@ -257,13 +260,12 @@ export default function StockIn() {
                   </ul>
                 )}
 
-                {/* --- (ย้ายมาไว้ตรงนี้) แสดง Current Stock --- */}
                 {selectedProduct && (
                   <div style={{
                     background: '#f3f4f6',
                     padding: '12px 16px',
                     borderRadius: 8,
-                    marginTop: 8 // <-- เพิ่ม margin
+                    marginTop: 8 
                   }}>
                     <span style={{ fontWeight: 600, color: '#1f2937' }}>Current Stock: </span>
                     <span style={{ fontSize: 18, fontWeight: 700, color: '#059669' }}>
@@ -321,7 +323,7 @@ export default function StockIn() {
             </div>
           </form>
 
-          {/* --- Recent Entries Card (เหมือนเดิม) --- */}
+          {/* --- Recent Entries Card --- */}
           <div style={cardStyle}>
             <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 16, color: '#111827' }}>Recent Stock In Entries</h2>
             <div style={{ width: '100%', overflowX: 'auto' }}>

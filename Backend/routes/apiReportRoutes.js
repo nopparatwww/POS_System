@@ -51,14 +51,12 @@ router.get('/stats', authenticateToken, ensureWithinShift, ensurePermission(REPO
 });
 
 
-// --- API: Get Stock Movement (สำหรับตาราง) ---
-// GET /api/protect/reports/movement
 router.get('/movement', authenticateToken, ensureWithinShift, ensurePermission(REPORT_PERMISSION), async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
 
-    // 1. เตรียมข้อมูลจาก StockInLog
+    // เตรียมข้อมูลจาก StockInLog
     const inLogs = StockInLog.aggregate([
       {
         $project: {
@@ -74,7 +72,7 @@ router.get('/movement', authenticateToken, ensureWithinShift, ensurePermission(R
       }
     ]);
 
-    // 2. ใช้ $unionWith เพื่อรวม Log อื่นๆ
+    //ใช้ $unionWith เพื่อรวม Log อื่นๆ
     const aggregation = StockOutLog.aggregate([
       {
         $project: {
@@ -107,29 +105,18 @@ router.get('/movement', authenticateToken, ensureWithinShift, ensurePermission(R
           ]
         }
       },
-      // (สามารถ $unionWith: inLogs ที่นี่ได้ แต่ Mongoose V. เก่าๆ อาจมีปัญหา)
-      // (เราจะรวมผลลัพธ์ใน JS เพื่อความปลอดภัย)
-
-      // 3. เรียงลำดับ, แบ่งหน้า
-      // (ย้ายไปทำใน $facet หลังจากรวม InLogs)
     ]);
 
-    // รัน 2 aggregations พร้อมกัน
     const [inResults, outAndAuditResults] = await Promise.all([
         inLogs.exec(),
         aggregation.exec()
     ]);
     
-    // 4. รวมผลลัพธ์ใน JS และเรียงลำดับ
     const allMovements = [...inResults, ...outAndAuditResults];
     allMovements.sort((a, b) => b.date.getTime() - a.date.getTime()); // เรียงใหม่สุดก่อน
 
-    // 5. แบ่งหน้า (Manual Pagination)
     const total = allMovements.length;
     const items = allMovements.slice((page - 1) * limit, page * limit);
-
-    // 6. (Optional) Populate ข้อมูลสินค้า (กรณี Log เก่าไม่มี productName/sku)
-    // (ข้ามไปก่อนเพื่อความรวดเร็ว เนื่องจากเรา Denormalize ไว้แล้ว)
 
     res.json({ page, limit, total, items });
 
