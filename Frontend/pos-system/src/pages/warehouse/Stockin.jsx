@@ -199,7 +199,7 @@ export default function StockIn() {
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: isNarrow ? 'column' : 'row' }}>
       {!isNarrow && <NavBar mode="warehouse" />}
       {/* ... (Narrow mode header) ... */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb' }}>
+  <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb', marginLeft: isNarrow ? 0 : 220 }}>
         {!isNarrow && <TopBar />}
         <div style={{ flex: 1, padding: 'clamp(16px, 3vw, 32px)', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
 

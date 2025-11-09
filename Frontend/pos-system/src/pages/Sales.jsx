@@ -28,7 +28,7 @@ export default function Sales() {
           </div>
         </div>
       )}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+  <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', marginLeft: isNarrow ? 0 : 220 }}>
         <TopBar />
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ maxWidth: 780, width: '100%', textAlign: 'center' }}>

@@ -51,18 +51,7 @@ router.post("/signup", async (req, res) => {
     await user.setPassword(password);
     await user.save();
     // log action (actor may be unknown if public signup; fall back to provided username)
-    try {
-      await ActivityLog.create({
-        action: 'user.create',
-        actorUsername: req.user?.username || username,
-        actorRole: req.user?.role || role || 'unknown',
-        targetUsername: username,
-        method: req.method,
-        path: req.originalUrl,
-        status: 201,
-        details: { role }
-      })
-    } catch (e) { /* swallow logging error */ }
+    try { const { logActivity } = require('../utils/activityLogger'); await logActivity(req, 'user.create', 201, { role, targetUsername: username }) } catch (e) { /* swallow logging error */ }
     res.status(201).json({ message: "User created" });
   } catch (err) {
     console.error(err);

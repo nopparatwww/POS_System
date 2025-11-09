@@ -28,10 +28,10 @@ export default function Warehouse() {
           </div>
         </div>
       )}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+  <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', marginLeft: isNarrow ? 0 : 220 }}>
         <TopBar />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ maxWidth: 780, width: '100%', textAlign: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px, 3vw, 32px)' }}>
+          <div style={{ maxWidth: 1000, margin: '0 auto', width: '100%', textAlign: 'center' }}>
             <div style={{ background: '#fff', padding: 28, borderRadius: 10, boxShadow: '0 6px 18px rgba(2,6,23,0.12)' }}>
               <h1 style={{ margin: 0, fontSize: 28 }}>Welcome, Warehouse</h1>
               <p style={{ marginTop: 12, color: '#475569' }}>This is the Warehouse landing area. Use the sidebar to access admin tools where permitted.</p>

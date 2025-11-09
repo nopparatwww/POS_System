@@ -52,7 +52,7 @@ export default function LowStockAlert() {
   async function fetchLowStockItems() {
     setLoadingList(true)
     try {
-      const res = await axios.get(`${API_BASE}/api/protect/products/lowstock`)
+  const res = await axios.get(`${API_BASE}/api/protect/products/lowstock-robust`)
       setLowStockItems(res.data || [])
     } catch (e) {
       setError(e?.response?.data?.message || e.message)
@@ -188,7 +188,7 @@ export default function LowStockAlert() {
           </div>
         </div>
       )}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb' }}>
+  <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#f9fafb', marginLeft: isNarrow ? 0 : 220 }}>
         {!isNarrow && <TopBar />}
         <div style={{ flex: 1, padding: 'clamp(16px, 3vw, 32px)', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
           

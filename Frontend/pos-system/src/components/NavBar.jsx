@@ -104,7 +104,13 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     boxSizing: 'border-box',
     paddingTop: 8,
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    zIndex: 60,
+    overflowX: 'hidden',
+    overflowY: 'auto'
   } : {
     width: 220,
     background: '#0f172a',
@@ -113,7 +119,14 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     boxSizing: 'border-box',
     paddingTop: 20,
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    height: '100vh',
+    zIndex: 60,
+    overflowX: 'hidden',
+    overflowY: 'auto'
   }
 
   return (
@@ -142,11 +155,8 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
               {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
               {isAllowed('admin.products') && <MenuLink to="/admin/products">Products</MenuLink>}
-              {/* Logs links per granular permissions (legacy 'admin.logs' still enables all) */}
-              {(isAllowed('admin.logs') || isAllowed('admin.logs.all')) && <MenuLink to="/admin/logs/all">Logs (All)</MenuLink>}
-              {(isAllowed('admin.logs') || isAllowed('admin.logs.admin')) && <MenuLink to="/admin/logs/admin">Logs - Admin</MenuLink>}
-              {(isAllowed('admin.logs') || isAllowed('admin.logs.cashier')) && <MenuLink to="/admin/logs/cashier">Logs - Cashier</MenuLink>}
-              {(isAllowed('admin.logs') || isAllowed('admin.logs.warehouse')) && <MenuLink to="/admin/logs/warehouse">Logs - Warehouse</MenuLink>}
+              {/* Single unified Logs view (use filters inside the page). Show when user has any logs-related permission */}
+              {(isAllowed('admin.logs') || isAllowed('admin.logs.all') || isAllowed('admin.logs.admin') || isAllowed('admin.logs.cashier') || isAllowed('admin.logs.warehouse')) && <MenuLink to="/admin/logs">Logs</MenuLink>}
             </>
           )}
 

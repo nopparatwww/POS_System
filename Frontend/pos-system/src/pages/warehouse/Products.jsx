@@ -28,9 +28,10 @@ export default function WarehouseProducts() {
           </div>
         </div>
       )}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', marginLeft: isNarrow ? 0 : 220 }}>
         <TopBar />
-        <div style={{ flex: 1, padding: 24 }}>
+        {/* Remove outer padding/maxWidth so ProductManagement controls layout */}
+        <div style={{ flex: 1 }}>
           <ProductManagement />
         </div>
       </main>
