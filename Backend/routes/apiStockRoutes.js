@@ -1,55 +1,46 @@
 const express = require('express');
 const router = express.Router();
-const Product = require('../models/product'); // <--- ดึงข้อมูล Product มาใช้
-const StockInLog = require('../models/stockInLog'); // <--- ดึง Log ที่สร้างใหม่มาใช้
+const Product = require('../models/product'); 
+const StockInLog = require('../models/stockInLog'); 
 const StockOutLog = require('../models/stockOutLog');
-const ActivityLog = require('../models/activityLog'); // <--- Log กลางของระบบ
+const StockAuditLog = require('../models/stockAuditLog');
+const ActivityLog = require('../models/activityLog'); 
 const authenticateToken = require('../middleware/authMiddleware');
 const ensurePermission = require('../middleware/ensurePermission');
 const ensureWithinShift = require('../middleware/ensureWithinShift');
 
-// กำหนดสิทธิ์สำหรับฟีเจอร์นี้
 const STOCK_IN_PERMISSION = ['admin.stockin', 'warehouse.stockin'];
 const STOCK_OUT_PERMISSION = ['admin.stockout', 'warehouse.stockout'];
+const STOCK_AUDIT_PERMISSION = ['admin.audit', 'warehouse.audit'];
 // --- API หลัก: บันทึกการรับสินค้าเข้า ---
 // POST /api/protect/stock/in
 router.post('/in', authenticateToken, ensureWithinShift, ensurePermission(STOCK_IN_PERMISSION), async (req, res) => {
   try {
     const { productId, quantity } = req.body;
     const { username, role } = req.user; // มาจาก JWT
-
-    // 1. ตรวจสอบข้อมูลเข้า
-    if (!productId || !quantity) {
-      return res.status(400).json({ message: 'productId, quantity เป็นฟิลด์บังคับ' });
-    }
     const numQty = parseFloat(quantity);
-    if (isNaN(numQty) || numQty <= 0) {
-      return res.status(400).json({ message: 'Quantity (จำนวน) ต้องเป็นบวก' });
-    }
 
-    // 2. อัปเดตสต็อกสินค้าหลัก (Product)
+    if (!productId || !quantity || isNaN(numQty) || numQty <= 0) {
+      return res.status(400).json({ message: 'productId และ quantity (ตัวเลข > 0) เป็นฟิลด์บังคับ' });
+    }
+   
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
-      {
-        $inc: { stock: numQty },   // <-- เพิ่มสต็อก (Increment)
-      },
-      { new: true, runValidators: true } // `new: true` เพื่อรับเอกสาร Product ที่อัปเดตแล้วกลับมา
+      { $inc: { stock: numQty } },
+      { new: true, runValidators: true } 
     );
-
     if (!updatedProduct) {
-      return res.status(404).json({ message: 'ไม่พบสินค้า (Product) ที่ระบุ' });
+      return res.status(404).json({ message: 'ไม่พบสินค้า (Product)' });
     }
 
-    // 3. สร้าง Log การรับเข้า (StockInLog)
     const stockLog = await StockInLog.create({
       product: updatedProduct._id,
-      productName: updatedProduct.name, // คัดลอกชื่อมาเก็บ
-      sku: updatedProduct.sku,         // คัดลอก SKU มาเก็บ
-      quantity: updatedProduct.stock,
+      productName: updatedProduct.name, 
+      sku: updatedProduct.sku,         
+      quantity: numQty, // <--- (แก้ไข) บันทึก "จำนวนที่เพิ่ม" (Delta)
       actorUsername: username,
     });
 
-    // 4. (Optional) สร้าง Log กลาง (ActivityLog)
     try {
       await ActivityLog.create({
         action: 'stock.in',
@@ -84,9 +75,7 @@ router.get('/in/logs', authenticateToken, ensureWithinShift, ensurePermission(ST
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10)); // Default 10
-    
     const criteria = {}; // (อนาคตสามารถเพิ่ม Filter ตรงนี้ได้)
-    
     const total = await StockInLog.countDocuments(criteria);
     // --- AAA สิ้นสุด Logic การแบ่งหน้า ---
 
@@ -203,6 +192,52 @@ router.get('/out/logs', authenticateToken, ensureWithinShift, ensurePermission(S
   } catch (e) {
     console.error('Get Stock Out Logs Error:', e);
     res.status(500).json({ message: 'Server error fetching stock out logs.' });
+  }
+});
+
+router.post('/audit', authenticateToken, ensureWithinShift, ensurePermission(STOCK_AUDIT_PERMISSION), async (req, res) => {
+  try {
+    const { productId, actualStock } = req.body;
+    const { username, role } = req.user;
+    const numActual = parseFloat(actualStock);
+    if (!productId || isNaN(numActual) || numActual < 0) {
+      return res.status(400).json({ message: 'productId และ actualStock (ตัวเลข >= 0) เป็นฟิลด์บังคับ' });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: 'ไม่พบสินค้า (Product)' });
+    }
+    const systemStock = product.stock;
+    const difference = numActual - systemStock; // ผลต่าง (Delta)
+
+    product.stock = numActual; // Set สต็อกใหม่
+    await product.save();
+
+    const auditLog = await StockAuditLog.create({
+      product: product._id,
+      productName: product.name,
+      sku: product.sku,
+      systemStock: systemStock,
+      actualStock: numActual,
+      quantity: difference, // <--- (แก้ไข) บันทึก "ผลต่าง" (Delta)
+      actorUsername: username,
+    });
+
+    // (ActivityLog ... ไม่ต้องแก้)
+    try {
+      await ActivityLog.create({
+        action: 'stock.audit', actorUsername: username, actorRole: role,
+        method: req.method, path: req.originalUrl, status: 201,
+        details: { productId: product._id, sku: product.sku, systemStock, actualStock: numActual, difference }
+      });
+    } catch (logErr) { console.error('Failed to create activity log for stock.audit:', logErr); }
+
+    res.status(201).json(auditLog);
+
+  } catch (e) {
+    console.error('Stock Audit Error:', e);
+    res.status(500).json({ message: 'Server error during stock audit.' });
   }
 });
 

@@ -29,6 +29,8 @@ const PATH_TO_KEY = [
   { path: /^\/warehouse\/stockin(?:\/.*)?$/, key: 'warehouse.stockin' },
   { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
   { path: /^\/warehouse\/lowstock(?:\/.*)?$/, key: 'warehouse.lowstock' },
+  { path: /^\/warehouse\/audit(?:\/.*)?$/, key: 'warehouse.audit' },
+  { path: /^\/warehouse\/reports(?:\/.*)?$/, key: 'warehouse.reports' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
 ];
 
@@ -56,10 +58,13 @@ router.get('/me', authenticateToken, ensureWithinShift, async (req, res) => {
         'admin.dashboard', 'admin.permissions', 'admin.products',
         // grant all logs by default for admins
         'admin.logs',
-        'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout', 'admin.lowstock'
+        'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout', 'admin.lowstock',
+        'admin.audit','admin.reports'
       ],
       cashier: ['sales.home'],
-      warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs'],
+      warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs'
+      ,'warehouse.audit','admin.reports'
+      ],
     };
     const allowRoutes = (perm?.allowRoutes && perm.allowRoutes.length > 0)
       ? perm.allowRoutes

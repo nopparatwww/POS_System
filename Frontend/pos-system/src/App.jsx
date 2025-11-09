@@ -41,6 +41,8 @@ import Stockin from "./pages/warehouse/Stockin";
 import Stockout from "./pages/warehouse/Stockout";
 import Stockaudit from "./pages/warehouse/Stockaudit";
 import WarehouseLowStockAlert from "./pages/warehouse/LowStockAlert";
+import WarehouseStockAudit from "./pages/warehouse/Stockaudit";
+import WarehouseInventoryReports from "./pages/warehouse/InventoryReports";
 import WarehouseLogsPage from "./pages/warehouse/Logs";
 import SalesLogsPage from "./pages/sales/Logs";
 
@@ -58,6 +60,8 @@ export default function App() {
           <Route path="/warehouse/stockout" element={<ProtectedRoute><Stockout /></ProtectedRoute>} />
           <Route path="/warehouse/stockaudit" element={<ProtectedRoute><Stockaudit /></ProtectedRoute>} />
           <Route path="/warehouse/lowstock" element={<ProtectedRoute><WarehouseLowStockAlert /></ProtectedRoute>} />
+          <Route path="/warehouse/audit" element={<ProtectedRoute><WarehouseStockAudit /></ProtectedRoute>} />
+          <Route path="/warehouse/reports" element={<ProtectedRoute><WarehouseInventoryReports /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
           <Route path="/sales/logs" element={<ProtectedRoute><SalesLogsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
