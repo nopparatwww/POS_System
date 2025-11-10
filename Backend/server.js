@@ -53,8 +53,11 @@ app.use("/api/protect/reports", apiReportRoutes);
 // (e.g. /api/protect/products/lowstock or /api/protect/products/lowstock-robust)
 // for production-safe lowstock checks.
 
+module.exports = app;
+
 // Start server
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
