@@ -22,7 +22,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 // previous: import Home from "./pages/Home";
 import Warehouse from "./pages/Warehouse";
-import Sales from "./pages/Sales";
+import Sales from "./pages/sales/Cashier";
 // previous: import Users from "./pages/Users";
 import Admin from "./pages/Admin";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -41,6 +41,10 @@ import WarehouseStockAudit from "./pages/warehouse/Stockaudit";
 import WarehouseInventoryReports from "./pages/warehouse/InventoryReports";
 import WarehouseLogsPage from "./pages/warehouse/Logs";
 import SalesLogsPage from "./pages/sales/Logs";
+import SalesHistory from './pages/sales/SalesHistory';
+import Refund from "./pages/sales/Refund";
+import RefundHistory from "./pages/sales/RefundHistory";
+
 
 export default function App() {
   return (
@@ -59,6 +63,10 @@ export default function App() {
           <Route path="/warehouse/audit" element={<ProtectedRoute><WarehouseStockAudit /></ProtectedRoute>} />
           <Route path="/warehouse/reports" element={<ProtectedRoute><WarehouseInventoryReports /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+          <Route path="/sales/cashier" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+          <Route path="/sales/salehistory" element={<ProtectedRoute><SalesHistory /></ProtectedRoute>} />
+          <Route path="/sales/refunds" element={<ProtectedRoute><Refund/></ProtectedRoute>} />
+          <Route path="/sales/refundhistory" element={<ProtectedRoute><RefundHistory/></ProtectedRoute>} />
           <Route path="/sales/logs" element={<ProtectedRoute><SalesLogsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />

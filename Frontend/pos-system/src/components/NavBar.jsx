@@ -162,8 +162,11 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
 
           {mode === 'sales' && (
             <>
-              {isAllowed('sales.home') && <MenuLink to="/sales">Sales Home</MenuLink>}
-              {isAllowed('sales.logs') && <MenuLink to="/sales/logs">Logs</MenuLink>}
+              {<MenuLink to="/sales/cashier">Cashier</MenuLink>}
+              {<MenuLink to="/sales/refunds">Refunds</MenuLink>}
+              {<MenuLink to="/sales/salehistory">Sale History</MenuLink>}
+              {<MenuLink to="/sales/refundhistory">Refund History</MenuLink>}
+              {<MenuLink to="/sales/logs">Logs</MenuLink>}
             </>
           )}
 

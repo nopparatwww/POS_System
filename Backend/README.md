@@ -5,6 +5,7 @@
 ไฟล์นี้รวมสรุปสถาปัตยกรรม, ตัวแปรสิ่งแวดล้อม (env), รายละเอียด endpoint, วิธีทดสอบด้วย Postman/Newman, แนวทางด้านความปลอดภัย และขั้นตอนแนะนำถัดไป
 
 ## สรุปสั้น ๆ
+
 - ระบบใช้ Node.js + Express และ MongoDB (Mongoose)
 - Authentication: password hashing ด้วย `bcryptjs` (พร้อมตัวเลือก `PASSWORD_PEPPER`) และการออก JWT โดย `jsonwebtoken`
 - หลักการ: Signup -> store passwordHash, Login -> verify -> issue JWT, Protected endpoints ใช้ middleware เพื่อตรวจ JWT
@@ -13,6 +14,7 @@
 ---
 
 ## ไฟล์สำคัญและความรับผิดชอบ
+
 - `server.js` — bootstrap แอป, โหลด dotenv, เชื่อมต่อ DB, mount routes
 - `config/db.js` — เชื่อมต่อ MongoDB (อ่าน `MONGO_URI` จาก env)
 - `models/user.js` — Mongoose schema ของ User, เมธอด `setPassword` และ `comparePassword` (hash/verify)
@@ -25,6 +27,7 @@
 ---
 
 ## ตัวแปร environment (สำคัญ)
+
 สร้างไฟล์ `.env` โดยคัดลอกจาก `Backend/.env.example` แล้วแก้ค่าให้เหมาะสม (อย่า commit `.env` เข้ากับ repo)
 
 รายการตัวแปรหลัก:
@@ -36,6 +39,11 @@ JWT_SECRET=เปลี่ยนเป็นค่าสุ่มยาวๆ
 JWT_EXPIRES_IN=1h
 BCRYPT_ROUNDS=12
 PASSWORD_PEPPER=
+
+# Stripe (สำหรับรับชำระเงิน)
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+# STRIPE_WEBHOOK_SECRET=  # (optional ตอนเริ่มต้น; จำเป็นถ้าเปิดใช้ webhook จริง)
 ```
 
 - `JWT_SECRET`: ต้องเก็บลับสุดยอด — ใช้ secret manager ใน production
@@ -73,23 +81,41 @@ node server.js
 
 ตรวจ log สำหรับ warning เกี่ยวกับ `JWT_SECRET` หรือ `MONGO_URI` (ถ้ามี)
 
+ถ้าต้องการทดสอบ Stripe PromptPay / Card ให้ตั้งค่าใน `.env`:
+
+```
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+# STRIPE_WEBHOOK_SECRET=whsec_xxx  (เมื่อสร้าง webhook endpoint ใน Stripe Dashboard แล้ว)
+```
+
+จากนั้นเปิด endpoint ที่สร้างไว้:
+
+- POST `/api/protect/payments/promptpay-intent` — สร้าง PaymentIntent สำหรับ PromptPay
+- POST `/api/protect/payments/card-intent` — สร้าง PaymentIntent สำหรับบัตร
+- GET `/api/protect/payments/intent/:id` — ตรวจสถานะ intent (polling)
+
 ---
 
 ## Endpoints (Reference)
 
-1) POST /api/auth/signup
+1. POST /api/auth/signup
+
 - Request (JSON): { "username": "alice", "password": "secret123", "role": "cashier" }
 - Responses: 201 Created / 400 Bad Request / 409 Conflict / 500 Server Error
 
-2) POST /api/auth/login
+2. POST /api/auth/login
+
 - Request (JSON): { "username": "alice", "password": "secret123" }
 - Responses: 200 OK -> { "token": "<jwt>" } / 400 / 401 / 500
 
-3) GET /api/protect/dashboard
+3. GET /api/protect/dashboard
+
 - Header: Authorization: Bearer <token>
 - Responses: 200 OK -> protected data / 401/403 on invalid or missing token
 
-4) GET /api/public/info
+4. GET /api/public/info
+
 - Public example endpoint — ไม่ต้องมี token
 
 หมายเหตุ: โครง payload ของ JWT ถูกจำกัดไว้ให้น้อยที่สุด (userId, username, role) — อย่าใส่ข้อมูลลับใน payload
@@ -99,10 +125,12 @@ node server.js
 ## วิธีทดสอบ (Postman และ Newman)
 
 โฟลเดอร์ `Backend/postman` มีไฟล์:
+
 - `POS_Backend_Collection.json` — collection ของ Postman
 - `POS_Backend_Environment.json` — environment (ตัวแปรเช่น baseUrl, token)
 
 วิธีใช้งาน (Postman GUI):
+
 1. Import ทั้งสองไฟล์เข้า Postman
 2. เลือก environment ที่ import แล้วตั้ง `baseUrl` ให้ชี้ไปที่เซิร์ฟเวอร์ของคุณ (เช่น http://localhost:3000)
 3. รัน collection (Signup -> Login -> Protected)
@@ -142,15 +170,52 @@ Collection จะเก็บ token จาก response ของ `login` ลง�
 ---
 
 ## ถ้าต้องการให้ผมทำต่อ
+
 - ผมสามารถเพิ่ม /api/auth/me ให้, เพิ่ม refresh token flow, เขียน Jest tests, หรือตั้ง CI workflow เพื่อรัน Newman อัตโนมัติ
 - ระบุสิ่งที่ต้องการ แล้วผมจะทำให้เรียบร้อยและส่งผลการทดสอบกลับ
 
 ---
 
 ขอบคุณ — แจ้งผมว่าต้องการให้ผมเพิ่มส่วนไหนให้ละเอียดขึ้นอีก (เช่น ตัวอย่าง response body, ตัวอย่าง setup ใน production, หรือ GitHub Actions workflow)
+
+---
+
+## Backfill invoiceNo สำหรับข้อมูลเก่า (Sales) 🧾
+
+หากมีเอกสารการขาย (Sale) เก่าที่ไม่มี `invoiceNo` สคริปต์นี้จะช่วยเติมให้อัตโนมัติ โดยใช้รูปแบบเดียวกับการขายใหม่ใน API คือ `YYYYMMDD-<4-hex>` และอ้างอิงวันที่จาก `createdAt` ของเอกสารนั้น ๆ เพื่อให้เลขดูสอดคล้องตามวันขายเดิม
+
+ไฟล์สคริปต์: `Backend/scripts/backfillInvoiceNo.js`
+
+เงื่อนไขและคุณสมบัติ
+
+- อ่านค่า `MONGO_URI` จากไฟล์ `.env` (เหมือนกับ `server.js`)
+- โหมด `--dry-run` เพื่อซ้อมโดยไม่เขียนข้อมูล
+- ตรวจสอบความซ้ำก่อนอัปเดต เพื่อหลีกเลี่ยง duplicate key
+- ทำงานแบบสตรีม (cursor) จึงไม่กินเมมโมรี่กับข้อมูลจำนวนมาก
+
+วิธีรัน (Windows / cmd.exe):
+
+```cmd
+cd Backend
+
+:: ซ้อม แสดงรายการที่จะอัปเดต โดยไม่เขียนจริง
+node scripts\backfillInvoiceNo.js --dry-run
+
+:: ทำจริง เขียนค่า invoiceNo ให้เอกสารที่ยังว่าง/ขาด
+node scripts\backfillInvoiceNo.js
+```
+
+เมื่อสำเร็จ จะแสดงสรุปจำนวนที่ประมวลผลและจำนวนที่อัปเดต หากฐานข้อมูลมี unique index บน `invoiceNo` อยู่แล้ว สคริปต์จะหลีกเลี่ยงเลขซ้ำโดยการสุ่มซ้ำให้อัตโนมัติ
+
+หมายเหตุ:
+
+- หลังจาก backfill แล้ว การสร้างขายใหม่ผ่าน API `/api/protect/sales` จะยังคงออก `invoiceNo` ให้โดยอัตโนมัติตามปกติ (ดูโค้ดใน `routes/apiSalesRoutes.js` ฟังก์ชัน `genInvoiceNo`)
+- ถ้าเอกสารเก่ามีข้อจำกัด schema ไม่ตรง (เช่น ฟิลด์ที่ขาดอื่น ๆ) สคริปต์จะใช้ `updateOne` เฉพาะฟิลด์ `invoiceNo` เพื่อลดโอกาส validation ล้มเหลว
+
 # POS_System Backend — Authentication Guide
 
 ## สรุปการเปลี่ยนแปลงที่ทำแล้ว
+
 - เปลี่ยนจากการใช้ผู้ใช้ในหน่วยความจำ เป็นการเก็บผู้ใช้ใน MongoDB (`models/user.js`) และใช้ Mongoose model
 - เพิ่มการ hash รหัสผ่านด้วย `bcryptjs` (pre-save hook) และเมธอด `comparePassword` สำหรับตรวจสอบ
 - สร้าง endpoints แบบจริงจังใน `routes/apiAuthRoutes.js`:
@@ -164,19 +229,23 @@ Collection จะเก็บ token จาก response ของ `login` ลง�
 ---
 
 ## หลักการทำงานโดยละเอียด
+
 ระบบ Authentication นี้ใช้แนวทางดังนี้:
 
 1. Password hashing
+
    - เมื่อมีการสร้างหรือแก้ไขรหัสผ่านของผู้ใช้ (field `password`) โมเดล `User` จะทำการ hash ด้วย `bcryptjs` โดยอัตโนมัติก่อนเก็บลงฐานข้อมูล
    - การใช้ salt (ผ่าน `bcrypt.genSalt`) ทำให้ hash แต่ละค่าแตกต่างกันแม้รหัสผ่านเหมือนกัน
 
 2. Signup
+
    - Client ส่ง `username` และ `password` ไปยัง POST `/api/auth/signup`
    - เซิร์ฟเวอร์ตรวจสอบว่ามี `username` ซ้ำหรือไม่ หากไม่มีจะสร้าง `User` ใหม่ (รหัสผ่านจะถูก hash โดย pre-save hook)
-    - ตอนนี้ระบบใช้ `bcryptjs` กับค่า `BCRYPT_ROUNDS` (ค่าเริ่มต้น 12) และ optional `PASSWORD_PEPPER` ที่เก็บใน environment
-    - ข้อมูลที่เก็บใน DB: `username`, `passwordHash`, `hashAlgo`, `role`, `createdAt`, `updatedAt`
+   - ตอนนี้ระบบใช้ `bcryptjs` กับค่า `BCRYPT_ROUNDS` (ค่าเริ่มต้น 12) และ optional `PASSWORD_PEPPER` ที่เก็บใน environment
+   - ข้อมูลที่เก็บใน DB: `username`, `passwordHash`, `hashAlgo`, `role`, `createdAt`, `updatedAt`
 
 3. Login & JWT
+
    - Client ส่ง `username` และ `password` ไปยัง POST `/api/auth/login`
    - เซิร์ฟเวอร์ตำแหน่ง `User` จากฐานข้อมูลแล้วเรียก `user.comparePassword(password)` ซึ่งจะใช้ `bcrypt.compare` เพื่อยืนยัน
    - ถ้า match จะสร้าง JWT โดยใช้ `jsonwebtoken` ใส่ payload เล็กๆ เช่น `{ userId, role, username }`
@@ -191,6 +260,7 @@ Collection จะเก็บ token จาก response ของ `login` ลง�
 ---
 
 ## ไฟล์สำคัญ
+
 - `models/user.js` — Mongoose schema + pre-save hash + comparePassword
 - `routes/apiAuthRoutes.js` — signup/login endpoints
 - `middleware/authMiddleware.js` — verify JWT
@@ -201,6 +271,7 @@ Collection จะเก็บ token จาก response ของ `login` ลง�
 ---
 
 ## การติดตั้งและรัน (Windows / cmd.exe)
+
 1. เข้าโฟลเดอร์ Backend:
 
 ```
@@ -273,13 +344,15 @@ It contains detailed explanations, environment variables, endpoint reference, ex
 Create `.env` (do NOT commit secrets). Example variables used by the code:
 
 ```
+
 PORT=3000
 MONGO_URI=mongodb://localhost:27017/pos
 JWT_SECRET=replace_this_with_a_long_random_string
 JWT_EXPIRES_IN=1h
 BCRYPT_ROUNDS=12
 PASSWORD_PEPPER=
-```
+
+````
 
 - `JWT_SECRET`: secret used to sign and verify JWTs (keep secret)
 - `JWT_EXPIRES_IN`: token lifetime for access tokens (supports formats like `15m`, `1h`)
@@ -337,15 +410,17 @@ curl -X POST http://localhost:3000/api/auth/signup -H "Content-Type: application
 curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d "{\"username\":\"alice\",\"password\":\"secret123\"}"
 
 curl -H "Authorization: Bearer <token>" http://localhost:3000/api/protect/dashboard
-```
+````
 
 JS fetch example (browser/frontend):
 
 ```javascript
-const token = '<your-jwt-token>';
-fetch('/api/protect/dashboard', {
-  headers: { Authorization: `Bearer ${token}` }
-}).then(r => r.json()).then(console.log);
+const token = "<your-jwt-token>";
+fetch("/api/protect/dashboard", {
+  headers: { Authorization: `Bearer ${token}` },
+})
+  .then((r) => r.json())
+  .then(console.log);
 ```
 
 ---
@@ -372,6 +447,7 @@ fetch('/api/protect/dashboard', {
 ---
 
 If you want, I can:
+
 - Add a `/api/auth/me` endpoint that returns user info from token.
 - Add unit/integration tests (Jest + supertest) for signup/login/protected routes.
 - Implement refresh tokens and logout flow.

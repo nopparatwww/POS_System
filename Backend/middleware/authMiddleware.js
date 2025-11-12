@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken");
 const SECRET_KEY = process.env.JWT_SECRET 
 
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
+  const authHeader = req.header("Authorization");
 
   const token = authHeader && authHeader.split(" ")[1]; // Bearer <token> ลบ Bearer ออก
   if (!token) return res.status(401).json({ message: "No token provided" });
@@ -14,6 +14,7 @@ function authenticateToken(req, res, next) {
       return res.status(403).json({ message: "Invalid token" });
     }
 
+    console.log('✅ Authenticated user:', user);
     req.user = user; // เก็บขอ้มูล user ลง req
     next();
   });

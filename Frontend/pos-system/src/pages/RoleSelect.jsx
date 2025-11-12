@@ -16,6 +16,7 @@
   - Admin can override `role_permissions` in localStorage (temporary local admin UI).
 */
 import React, { useState, useEffect } from "react";
+import { logger } from "../utils/logger";
 import { useNavigate } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
 import TopBar from "../components/TopBar";
@@ -30,7 +31,7 @@ const rolesStyles = `
 .pg-roles .card-label { margin-top:12px; font-size:18px; color:#0f172a; }
 .pg-roles .card.selected { transform: scale(1.05); background-color: #059669; }
 .pg-roles .card:not(.selected) { background-color: #34d399; }
-`
+`;
 
 const ROLE_CONFIG = [
   {
@@ -127,7 +128,7 @@ export default function RoleSelect() {
         if (parsed && typeof parsed === "object") setPermissions(parsed);
       }
     } catch (e) {
-      console.warn("Invalid role_permissions in localStorage", e);
+      logger.warn("Invalid role_permissions in localStorage", e);
     }
   }, []);
 
@@ -142,21 +143,34 @@ export default function RoleSelect() {
       <style>{rolesStyles}</style>
       <TopBar />
       <div className="header-row">
-        <h1 className="role-title">Role : {(() => {
-          if (serverRole) {
-            const MAP = {
-              cashier: "Cashier",
-              admin: "Admin",
-              manager: "Manager",
-              owner: "Owner",
-              warehouse: "Warehouse",
-            };
-            return MAP[serverRole] || serverRole;
-          }
-          return selected || "---";
-        })()}</h1>
+        <h1 className="role-title">
+          Role :{" "}
+          {(() => {
+            if (serverRole) {
+              const MAP = {
+                cashier: "Cashier",
+                admin: "Admin",
+                manager: "Manager",
+                owner: "Owner",
+                warehouse: "Warehouse",
+              };
+              return MAP[serverRole] || serverRole;
+            }
+            return selected || "---";
+          })()}
+        </h1>
         <div style={{ marginLeft: 12 }}>
-          <LogoutButton style={{ backgroundColor: '#DC2626', color: '#ffffff', padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700 }} />
+          <LogoutButton
+            style={{
+              backgroundColor: "#DC2626",
+              color: "#ffffff",
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          />
         </div>
       </div>
       <div className="cards-row">
@@ -216,7 +230,7 @@ export default function RoleSelect() {
               <div key={r.key} className="card-wrap">
                 <div
                   onClick={() => handleSelect(r.key, r.to)}
-                  className={`card ${isSelected ? 'selected' : ''}`}
+                  className={`card ${isSelected ? "selected" : ""}`}
                   title={r.label}
                   style={{}}
                 >
@@ -229,5 +243,5 @@ export default function RoleSelect() {
         })()}
       </div>
     </div>
-  )
+  );
 }

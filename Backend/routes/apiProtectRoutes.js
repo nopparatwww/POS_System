@@ -7,6 +7,7 @@ const User = require("../models/user");
 const ActivityLog = require("../models/activityLog");
 const ensurePermission = require("../middleware/ensurePermission");
 const Permission = require("../models/permission");
+const Product = require("../models/product.js");
 
 // Protected route example
 router.get("/dashboard", authenticateToken, ensureWithinShift, (req, res) => {
@@ -124,6 +125,37 @@ router.put('/users/:username', authenticateToken, ensureWithinShift, ensureAdmin
     res.status(500).json({ message: 'Server error' })
   }
 })
+
+// ✅ เพิ่ม route สำหรับดึงสินค้า
+router.get(
+  '/products',
+  authenticateToken,   // ✅ ต้องมาก่อน ensurePermission
+  ensurePermission(['admin.products', 'sales.products', 'warehouse.products', 'cashier.products']),
+  async (req, res) => {
+    try {
+      const search = req.query.search || ""; // ดึง keyword จาก query เช่น ?search=c
+
+      // ถ้ามี search → กรองจากชื่อสินค้า, ยี่ห้อ หรือหมวดหมู่
+      let products;
+      if (search) {
+        products = await Product.find({
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { brand: { $regex: search, $options: "i" } },
+            { category: { $regex: search, $options: "i" } }
+          ]
+        }).lean();
+      } else {
+        products = await Product.find().lean();
+      }
+
+      res.json(products);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      res.status(500).json({ message: 'Server error' });
+    }
+  }
+);
 
 // Helper to build criteria and respond with paginated logs
 async function respondLogs(req, res, fixedRole = null) {

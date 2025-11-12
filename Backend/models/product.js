@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const productSchema = new mongoose.Schema(
+const ProductSchema = new mongoose.Schema(
   {
     sku: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
@@ -19,6 +19,7 @@ const productSchema = new mongoose.Schema(
 );
 
 // Helpful index for search
-productSchema.index({ name: "text", sku: "text" });
+ProductSchema.index({ name: "text", sku: "text" });
 
-module.exports = mongoose.model("Product", productSchema);
+// ป้องกัน OverwriteModelError
+module.exports = mongoose.models.Product || mongoose.model("Product", ProductSchema);
