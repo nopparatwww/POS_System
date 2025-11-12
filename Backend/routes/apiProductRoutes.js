@@ -15,7 +15,14 @@ const roleBaseline = {
     'admin.logs', 'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse',
     'admin.stockin', 'admin.stockout', 'admin.lowstock', 'admin.audit','admin.reports'
   ],
-  cashier: ['sales.home'],
+  cashier: ['sales.home',
+    "sales.products",
+    "sales.cashier",
+    "sales.logs",
+    "sales.create",
+    "sales.view",
+    "refunds.view",
+    "refunds.create",],
   warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs','warehouse.audit','admin.reports'],
 }
 

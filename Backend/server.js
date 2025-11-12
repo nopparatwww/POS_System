@@ -15,6 +15,12 @@ const apiPublicRoutes = require("./routes/apiPublicRoutes");
 const apiProductRoutes = require("./routes/apiProductRoutes");
 const apiStockRoutes = require("./routes/apiStockRoutes");
 const apiReportRoutes = require("./routes/apiReportRoutes");
+const apiCashierRoutes = require("./routes/apiCashierRoutes");
+const apiDiscountRoutes = require("./routes/apiDiscountsRoutes");
+const apiSalesRoutes = require("./routes/apiSalesRoutes");
+const apiRefundRoutes = require("./routes/apiRefundRoutes");
+const apiPaymentsRoutes = require("./routes/apiPaymentsRoutes");
+const { stripeWebhookHandler } = require("./routes/stripeWebhook");
 
 const app = express();
 
@@ -23,6 +29,12 @@ const app = express();
 app.set('etag', false);
 // Hide Express signature
 app.disable('x-powered-by');
+
+app.post(
+  "/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler
+);
 
 // Parse incoming JSON bodies (application/json)
 app.use(bodyParser.json());
@@ -37,6 +49,16 @@ app.get("/", (req, res) => {
   res.send("JWT API is running");
 });
 
+app.get("/api/products/search", async (req, res) => {
+  const term = req.query.term;
+  const regex = new RegExp(term, "i");
+  const results = await Product.find({
+    $or: [{ name: regex }, { barcode: regex }],
+  });
+  res.json(results);
+});
+
+
 // Mount route groups
 // /api/auth     -> signup, login
 // /api/public   -> endpoints that don't require authentication
@@ -48,6 +70,11 @@ app.use("/api/permissions", apiPermissionRoutes);
 app.use("/api/protect/products", apiProductRoutes);
 app.use("/api/protect/stock", apiStockRoutes);
 app.use("/api/protect/reports", apiReportRoutes);
+app.use("/api/protect/cashier", apiCashierRoutes); // returns 410 Gone, guiding clients to /sales
+app.use("/api/protect/discounts", apiDiscountRoutes);
+app.use("/api/protect/sales", apiSalesRoutes);
+app.use("/api/protect/refunds", apiRefundRoutes);
+app.use("/api/protect/payments", apiPaymentsRoutes);
 
 // Debug-only routes removed from the server; use protected endpoints
 // (e.g. /api/protect/products/lowstock or /api/protect/products/lowstock-robust)

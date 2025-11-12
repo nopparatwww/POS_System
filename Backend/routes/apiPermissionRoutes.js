@@ -21,6 +21,13 @@ const PATH_TO_KEY = [
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
   { path: /^\/sales\/logs(?:\/.*)?$/, key: 'sales.logs' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
+  { path: /^\/sales\/products(?:\/.*)?$/, key: "sales.products" },
+  { path: /^\/sales\/cashier(?:\/.*)?$/, key: "sales.cashier" },
+  { path: /^\/sales\/create(?:\/.*)?$/, key: "sales.create" },
+  { path: /^\/sales\/view(?:\/.*)?$/, key: "sales.view" },
+  // Refunds
+  { path: /^\/refunds(?:\/.*)?$/, key: "refunds.view" },
+  { path: /^\/refunds\/create(?:\/.*)?$/, key: "refunds.create" },
   { path: /^\/warehouse\/stockin(?:\/.*)?$/, key: 'warehouse.stockin' },
   { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
   { path: /^\/warehouse\/stockaudit(?:\/.*)?$/, key: 'warehouse.stockaudit' },
@@ -61,7 +68,14 @@ router.get('/me', authenticateToken, ensureWithinShift, async (req, res) => {
         'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse', 'admin.stockin', 'admin.stockout', 'admin.lowstock',
         'admin.audit','admin.reports'
       ],
-      cashier: ['sales.home'],
+      cashier: ['sales.home',
+        "sales.products",
+        "sales.cashier",
+        "sales.logs",
+        "sales.create",
+        "sales.view",
+        "refunds.view",
+        "refunds.create",],
       warehouse: ['warehouse.home', 'warehouse.products', 'warehouse.stockin', 'warehouse.stockout', 'warehouse.stockaudit', 'warehouse.lowstock', 'warehouse.logs'
       ,'warehouse.audit','admin.reports'
       ],
@@ -156,7 +170,14 @@ router.post('/check', authenticateToken, ensureWithinShift, async (req, res) => 
         'admin.dashboard', 'admin.permissions', 'admin.products',
         'admin.logs', 'admin.logs.all', 'admin.logs.admin', 'admin.logs.cashier', 'admin.logs.warehouse'
       ],
-      cashier: ['sales.home'],
+      cashier: ['sales.home',
+          "sales.products",
+          "sales.cashier",
+          "sales.logs",
+          "sales.create",
+          "sales.view",
+          "refunds.view",
+          "refunds.create",],
       warehouse: ['warehouse.home'],
     };
 
