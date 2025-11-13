@@ -72,19 +72,22 @@ export default function Permissions() {
   // Inline styles to match the provided mock and adapt to viewport
   const styles = {
     wrap: { padding: 'clamp(12px, 2vw, 24px)', boxSizing: 'border-box', width: '100%' },
+    container: { width: '100%', maxWidth: 'none', margin: 0 },
     topBar: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexDirection: isNarrow ? 'column' : 'row', width: '100%', justifyContent: isNarrow ? 'flex-start' : 'space-between' },
-    searchBox: { display: 'flex', alignItems: 'center', gap: 8, width: isNarrow ? '100%' : 'clamp(260px, 34vw, 400px)' },
-    input: { flex: 1, width: '100%', height: 40, padding: '0 16px', borderRadius: 20, border: '1px solid #c7d0da', background: '#f6fafc', outline: 'none' },
-  iconBtn: { width: 40, height: 40, borderRadius: 10, border: 'none', background: '#101d33', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
-  createBtn: { alignSelf: isNarrow ? 'stretch' : 'auto', background: '#101d33', color: '#fff', padding: '10px 16px', height: 40, border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' },
+    searchBox: { display: 'flex', alignItems: 'center', gap: 8, width: isNarrow ? '100%' : 'clamp(260px, 34vw, 420px)' },
+    inputWrap: { position: 'relative', flex: 1 },
+    inputIcon: { position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' },
+    input: { flex: 1, width: '100%', height: 40, padding: '0 16px 0 40px', borderRadius: 20, border: '1px solid #e5e7eb', background: '#ffffff', outline: 'none', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' },
+    iconBtn: { width: 40, height: 40, borderRadius: 10, border: 'none', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    createBtn: { alignSelf: isNarrow ? 'stretch' : 'auto', background: '#10b981', color: '#fff', padding: '10px 16px', height: 40, border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 6px 14px rgba(16,185,129,0.25)' },
     tableOuter: { width: '100%', overflowX: 'auto' },
-    tableWrap: { border: '2px solid #0b1b2b', borderRadius: 8, background: '#fff', width: '100%', minWidth: 700, margin: 0 },
-  table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' },
-  th: { textAlign: 'left', padding: '16px 16px', borderBottom: '2px solid #0b1b2b', color: '#0b1b2b', whiteSpace: 'nowrap' },
-  thCenter: { textAlign: 'center', padding: '16px 16px', borderBottom: '2px solid #0b1b2b', color: '#0b1b2b', whiteSpace: 'nowrap' },
-  td: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', verticalAlign: 'middle' },
-  tdCenter: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', textAlign: 'center', verticalAlign: 'middle' },
-    editBtn: { background: '#0b1b2b', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
+    tableWrap: { border: '1px solid #e5e7eb', borderRadius: 12, background: '#fff', width: '100%', minWidth: 700, margin: 0, boxShadow: '0 6px 14px rgba(0,0,0,0.06)' },
+    table: { width: '100%', borderCollapse: 'separate', borderSpacing: 0, tableLayout: 'fixed' },
+    th: { textAlign: 'left', padding: '16px 16px', borderBottom: '1px solid #e5e7eb', color: '#0b1b2b', whiteSpace: 'nowrap', background: '#f9fafb' },
+    thCenter: { textAlign: 'center', padding: '16px 16px', borderBottom: '1px solid #e5e7eb', color: '#0b1b2b', whiteSpace: 'nowrap', background: '#f9fafb' },
+    td: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', verticalAlign: 'middle' },
+    tdCenter: { padding: '16px 16px', color: '#0b1b2b', whiteSpace: 'nowrap', textAlign: 'center', verticalAlign: 'middle' },
+    editBtn: { background: '#10b981', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 6px 14px rgba(16,185,129,0.25)' },
     pager: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 16 },
     pagerBtn: (disabled) => ({
       padding: '8px 14px',
@@ -93,10 +96,9 @@ export default function Permissions() {
       background: '#ffffff',
       color: disabled ? '#94a3b8' : '#0f172a',
       cursor: disabled ? 'not-allowed' : 'pointer',
-      boxShadow: '0 6px 14px rgba(0,0,0,0.06)'
+      boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
     }),
-    pageNum: { fontWeight: 700, color: '#475569' },
-    container: { width: '100%', maxWidth: 'none', margin: 0 }
+    pageNum: { fontWeight: 700, color: '#475569' }
   }
 
   function onSearch() {
@@ -117,15 +119,18 @@ export default function Permissions() {
         {/* Search + Create row */}
         <div style={styles.topBar}>
           <div style={styles.searchBox}>
-            <input
-              placeholder="username search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSearch() }}
-              style={styles.input}
-            />
+            <div style={styles.inputWrap}>
+              <span style={styles.inputIcon}><IconSearch size={18} color="#94a3b8" /></span>
+              <input
+                placeholder="username search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSearch() }}
+                style={styles.input}
+              />
+            </div>
             <button onClick={onSearch} style={styles.iconBtn} aria-label="Search">
-              <IconSearch />
+              <IconSearch color="#ffffff" />
             </button>
           </div>
           <button onClick={onCreate} style={styles.createBtn}>Create</button>

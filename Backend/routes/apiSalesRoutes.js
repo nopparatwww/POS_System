@@ -21,7 +21,8 @@ function genInvoiceNo() {
 router.post(
   "/",
   authenticateToken,
-  ensurePermission("sales.create"),
+  // Allow either explicit sales.create or the broader sales.cashier permission
+  ensurePermission(["sales.create", "sales.cashier"]),
   async (req, res) => {
     console.log("Sale POST req.body:", JSON.stringify(req.body, null, 2));
     try {

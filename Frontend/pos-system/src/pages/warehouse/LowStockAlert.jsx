@@ -309,18 +309,33 @@ export default function LowStockAlert() {
                     <tr>
                       <td colSpan={4} style={{ ...tdStyle, textAlign: 'center', color: '#6b7280' }}>No items are currently below minimum stock.</td>
                     </tr>
-                  ) : (
-                    lowStockItems.map(item => (
-                      <tr key={item._id}>
-                        <td style={tdStyle}>{item.name} <span style={{ color: '#6b7280', fontSize: 12 }}>({item.sku})</span></td>
-                        <td style={tdStyle}>{item.stock}</td>
-                        <td style={tdStyle}>{item.reorderLevel}</td>
-                        <td style={tdStyle}>
-                          <span style={statusStyle}>Critical</span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ) : lowStockItems.map(item => {
+                      // --- (1) คัดลอก Logic การตัดสินใจมาจาก Dashboard ---
+                      const isCritical = item.stock <= 5;
+                      const statusColor = isCritical ? '#fee2e2' : '#fef9c3'; 
+                      const textColor = isCritical ? '#991b1b' : '#713f12'; 
+
+                      return (
+                        <tr key={item._id}>
+                          <td style={tdStyle}>{item.name} <span style={{ color: '#6b7280', fontSize: 12 }}>({item.sku})</span></td>
+                          <td style={tdStyle}>{item.stock}</td>
+                          <td style={tdStyle}>{item.reorderLevel}</td>
+                          <td style={tdStyle}>
+                            {/* --- (2) ใช้ Style และ Text แบบไดนามิก --- */}
+                            <span style={{
+                              background: statusColor,
+                              color: textColor,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              fontSize: 12,
+                              fontWeight: 600
+                            }}>
+                              {isCritical ? 'Critical' : 'Low'}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
                 </tbody>
               </table>
             </div>

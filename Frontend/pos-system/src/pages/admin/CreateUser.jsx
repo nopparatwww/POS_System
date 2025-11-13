@@ -32,6 +32,7 @@ export default function CreateUser() {
     // Sales
     { key: 'sales.home', label: 'Sales: Home' },
     { key: 'sales.cashier', label: 'Sales: Cashier' },
+  { key: 'sales.create', label: 'Sales: Create' },
     { key: 'sales.view', label: 'Sales: History' },
   { key: 'sales.logs', label: 'Sales: Logs' },
   { key: 'refunds.create', label: 'Sales: Refund' },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import axios from "axios";
 // logger removed; using console directly
 import NavBar from "../../components/NavBar";
@@ -101,6 +102,10 @@ function CashierInner() {
   const [walletPhone, setWalletPhone] = useState("");
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const receiptRef = useRef();
+  // Camera scanner
+  const [showScanner, setShowScanner] = useState(false);
+  const scannerRef = useRef(null);
+  const SCAN_DIV_ID = "barcode-reader";
 
   // ===== HANDLE RESIZE =====
   useEffect(() => {
@@ -115,8 +120,109 @@ function CashierInner() {
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
+      // cleanup scanner if any
+      try {
+        if (scannerRef.current?.clear) {
+          scannerRef.current.clear();
+        }
+      } catch {}
     };
   }, []);
+
+  // ===== BARCODE SCANNER INTEGRATION =====
+  useEffect(() => {
+    if (!showScanner) return;
+    // Initialize scanner UI when modal is open
+    try {
+      const config = {
+        fps: 12,
+        // Slightly rectangular box helps 1D barcodes
+        qrbox: typeof window !== "undefined" && window.innerWidth < 480 ? { width: 220, height: 160 } : { width: 320, height: 200 },
+        rememberLastUsedCamera: true,
+        // Prefer back camera with higher resolution for better 1D reads
+        videoConstraints: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          aspectRatio: { ideal: 16 / 9 },
+        },
+        // Avoid mirrored frames on some front cameras which can confuse 1D decoding
+        disableFlip: true,
+        // Support common retail barcodes in addition to QR
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.CODE_93,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+        ],
+        // Enable platform BarcodeDetector for 1D support when available (Chrome/Edge)
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+      };
+
+      const onScanSuccess = async (decodedText/*, decodedResult*/) => {
+        const code = (decodedText || "").trim();
+        try {
+          if (!code) return;
+          // Try to find exact product by barcode/SKU first
+          let items = [];
+          try {
+            const res = await api.get("/products", { params: { q: code, limit: 10 } });
+            items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+          } catch (e) {
+            console.error("Scan lookup failed, falling back to search box:", e);
+          }
+
+          const exact = items.filter((p) => {
+            const bc = (p.barcode ?? "").toString().trim();
+            const sku = (p.sku ?? "").toString().trim();
+            return (bc && bc === code) || (sku && sku === code);
+          });
+
+          if (exact.length === 1) {
+            addToCart(exact[0]);
+            setSearchTerm("");
+            setSearchResults([]);
+          } else if (items.length === 1) {
+            // Only one candidate returned – add it
+            addToCart(items[0]);
+            setSearchTerm("");
+            setSearchResults([]);
+          } else {
+            // Multiple/no matches – show results so cashier can choose
+            setSearchTerm(code);
+            setSearchResults(items);
+          }
+        } finally {
+          // Close and cleanup scanner
+          setShowScanner(false);
+          try {
+            if (scannerRef.current?.clear) await scannerRef.current.clear();
+          } catch {}
+        }
+      };
+      const onScanError = (/*errorMessage*/) => {
+        // No-op: errors are frequent when scanning; keep UI responsive
+      };
+
+      const scanner = new Html5QrcodeScanner(SCAN_DIV_ID, config, false);
+      scannerRef.current = scanner;
+      scanner.render(onScanSuccess, onScanError);
+    } catch (e) {
+      console.error("Scanner init failed:", e);
+    }
+    return () => {
+      // Ensure scanner cleared when modal unmounts
+      try {
+        if (scannerRef.current?.clear) scannerRef.current.clear();
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showScanner, isNarrow]);
 
   // ===== CALCULATIONS =====
   const subtotal = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
@@ -193,9 +299,9 @@ function CashierInner() {
     setCart((prev) => prev.filter((p) => p.productId !== id));
 
   // ===== SEARCH =====
-  const handleSearch = async () => {
+  const handleSearch = async (termOverride) => {
     try {
-      const term = (searchTerm || "").trim();
+      const term = ((termOverride ?? searchTerm) || "").trim();
       if (!term) {
         setSearchResults([]);
         return;
@@ -889,6 +995,20 @@ function CashierInner() {
             >
               Search
             </button>
+            <button
+              onClick={() => setShowScanner(true)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 6,
+                background: "#111827",
+                color: "#fff",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+              title="Scan with Camera"
+            >
+              Scan
+            </button>
           </div>
 
           {/* Main Area */}
@@ -1368,6 +1488,47 @@ function CashierInner() {
             </div>
           </div>
           <Outlet />
+          {/* Scanner Modal */}
+          {showScanner && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.5)",
+                display: "grid",
+                placeItems: "center",
+                zIndex: 10000,
+                padding: 16,
+              }}
+              onClick={() => setShowScanner(false)}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "min(640px, 96vw)",
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: 16,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <h3 style={{ margin: 0 }}>Scan Barcode / QR</h3>
+                  <button
+                    onClick={() => setShowScanner(false)}
+                    style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer" }}
+                    aria-label="Close scanner"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div id={SCAN_DIV_ID} style={{ width: "100%" }} />
+                <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                  Tip: Camera access works on HTTPS or localhost. Hold the code steady within the frame.
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

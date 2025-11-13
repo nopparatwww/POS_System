@@ -95,7 +95,7 @@ describe('Full API Test Suite', () => {
         name: 'Test Product',
         price: 100,
         stock: 10,
-        reorderLevel: 5
+        reorderLevel: 15
       })
       .expect(201);
     testProductID = productRes.body._id; // บันทึก ID ไว้ใช้ทดสอบ Stock
@@ -430,6 +430,14 @@ describe('Full API Test Suite', () => {
   // 7. Logs API (apiProtectRoutes.js)
   // =============================
   describe('/api/protect/logs', () => {
+    // Restore cashier permission for sales.logs, because an earlier test reduced it.
+    before(async () => {
+      await request(app)
+        .put(`/api/permissions/${cashierUser.username}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ allowRoutes: ['sales.home', 'sales.logs'] })
+        .expect(200);
+    });
     it('[Admin] ควรดึง /logs/all ได้ (200 OK)', (done) => {
         request(app)
           .get('/api/protect/logs/all')
@@ -466,6 +474,109 @@ describe('Full API Test Suite', () => {
           .get('/api/protect/logs/all')
           .set('Authorization', `Bearer ${warehouseToken}`) // ใช้ token warehouse
           .expect(403, done);
+    });
+  });
+
+  // =============================
+  // 8. Validation 400 cases (Auth/Permissions/Products/Stock)
+  // =============================
+  describe('Validation 400 cases', () => {
+    // Auth
+    it('POST /api/auth/signup -> 400 when missing username/password', async () => {
+      await request(app).post('/api/auth/signup').send({ username: '', password: '' }).expect(400);
+    });
+    it('POST /api/auth/signup -> 400 invalid role', async () => {
+      await request(app).post('/api/auth/signup').send({ username: `x_${uniqueId}`, password: 'a', role: 'hacker' }).expect(400);
+    });
+    it('POST /api/auth/login -> 400 when missing fields', async () => {
+      await request(app).post('/api/auth/login').send({ username: '', password: '' }).expect(400);
+    });
+
+    // Permission check helper
+    it('POST /api/permissions/check -> 400 when path missing', async () => {
+      await request(app)
+        .post('/api/permissions/check')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({})
+        .expect(400);
+    });
+
+    // Products
+    it('POST /api/protect/products -> 400 when missing required fields', async () => {
+      await request(app)
+        .post('/api/protect/products')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ sku: `VAL_${uniqueId}_BAD` })
+        .expect(400);
+    });
+    it('POST /api/protect/products -> 400 when invalid price/stock', async () => {
+      await request(app)
+        .post('/api/protect/products')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ sku: `VAL_${uniqueId}_BAD2`, name: 'Bad', price: -1, stock: -5 })
+        .expect(400);
+    });
+    it('PUT /api/protect/products/:id -> 400 invalid price', async () => {
+      await request(app)
+        .put(`/api/protect/products/${testProductID}`)
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ price: -10 })
+        .expect(400);
+    });
+
+    // Stock In
+    it('POST /api/protect/stock/in -> 400 invalid productId format', async () => {
+      await request(app)
+        .post('/api/protect/stock/in')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: 'bad', quantity: 1 })
+        .expect(400);
+    });
+    it('POST /api/protect/stock/in -> 400 zero/negative quantity', async () => {
+      await request(app)
+        .post('/api/protect/stock/in')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: testProductID, quantity: 0 })
+        .expect(400);
+    });
+
+    // Stock Out
+    it('POST /api/protect/stock/out -> 400 missing reason', async () => {
+      await request(app)
+        .post('/api/protect/stock/out')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: testProductID, quantity: 1 })
+        .expect(400);
+    });
+    it('POST /api/protect/stock/out -> 400 invalid productId format', async () => {
+      await request(app)
+        .post('/api/protect/stock/out')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: 'bad', quantity: 1, reason: 'x' })
+        .expect(400);
+    });
+    it('POST /api/protect/stock/out -> 400 insufficient stock', async () => {
+      await request(app)
+        .post('/api/protect/stock/out')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: testProductID, quantity: 9999, reason: 'test' })
+        .expect(400);
+    });
+
+    // Stock Audit
+    it('POST /api/protect/stock/audit -> 400 invalid productId', async () => {
+      await request(app)
+        .post('/api/protect/stock/audit')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: 'bad', actualStock: 5 })
+        .expect(400);
+    });
+    it('POST /api/protect/stock/audit -> 400 negative actualStock', async () => {
+      await request(app)
+        .post('/api/protect/stock/audit')
+        .set('Authorization', `Bearer ${warehouseToken}`)
+        .send({ productId: testProductID, actualStock: -1 })
+        .expect(400);
     });
   });
 
