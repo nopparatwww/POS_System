@@ -8,11 +8,20 @@ import axios from 'axios'
 // - Once backend endpoints exist, the same UI will work with minimal changes.
 
 const card = {
-  background: '#fff',
-  border: '1px solid #e5e7eb',
+  background: 'var(--card-bg)',
+  border: '1px solid var(--card-border)',
   borderRadius: 12,
   padding: 16,
-  boxShadow: '0 8px 16px rgba(0,0,0,0.04)'
+  boxShadow: '0 8px 16px rgba(2,6,23,0.03)'
+}
+// Small search icon for inputs
+function IconSearch({ size = 18, color = '#64748b' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
 }
 
 export default function ProductManagement() {
@@ -168,7 +177,7 @@ export default function ProductManagement() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
+    <div style={{ width: '100%', maxWidth: 'none', margin: '0 auto', padding: '0 24px' }}>
       <h1 style={{ fontSize: 28, marginBottom: 12 }}>Product Management</h1>
 
       {!!error && (
@@ -181,22 +190,22 @@ export default function ProductManagement() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 16 }}>
         <div style={{ ...card }}>
           <form onSubmit={onSave} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
-            <input placeholder="SKU" value={draft.sku} onChange={e => setDraft(d => ({ ...d, sku: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Name" value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Category" value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Barcode" value={draft.barcode} onChange={e => setDraft(d => ({ ...d, barcode: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Unit" value={draft.unit} onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
+            <input placeholder="SKU" value={draft.sku} onChange={e => setDraft(d => ({ ...d, sku: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Name" value={draft.name} onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Category" value={draft.category} onChange={e => setDraft(d => ({ ...d, category: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Barcode" value={draft.barcode} onChange={e => setDraft(d => ({ ...d, barcode: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Unit" value={draft.unit} onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
 
-            <input placeholder="Price" value={draft.price} onChange={e => setDraft(d => ({ ...d, price: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Cost" value={draft.cost} onChange={e => setDraft(d => ({ ...d, cost: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Stock" value={draft.stock} onChange={e => setDraft(d => ({ ...d, stock: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <input placeholder="Reorder Level" value={draft.reorderLevel} onChange={e => setDraft(d => ({ ...d, reorderLevel: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-            <select value={draft.status} onChange={e => setDraft(d => ({ ...d, status: e.target.value }))} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+            <input placeholder="Price" value={draft.price} onChange={e => setDraft(d => ({ ...d, price: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Cost" value={draft.cost} onChange={e => setDraft(d => ({ ...d, cost: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Stock" value={draft.stock} onChange={e => setDraft(d => ({ ...d, stock: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <input placeholder="Reorder Level" value={draft.reorderLevel} onChange={e => setDraft(d => ({ ...d, reorderLevel: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }} />
+            <select value={draft.status} onChange={e => setDraft(d => ({ ...d, status: e.target.value }))} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }}>
               <option value="active">active</option>
               <option value="inactive">inactive</option>
             </select>
 
-            <textarea placeholder="Description" value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))} style={{ gridColumn: '1 / -1', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8, minHeight: 64 }} />
+            <textarea placeholder="Description" value={draft.description} onChange={e => setDraft(d => ({ ...d, description: e.target.value }))} style={{ gridColumn: '1 / -1', padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8, minHeight: 64 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="submit" style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 }}>{isEditing ? 'Update' : 'Create'}</button>
               {isEditing && (
@@ -206,14 +215,24 @@ export default function ProductManagement() {
           </form>
         </div>
 
-        <div style={{ ...card, display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
-          <input placeholder="Search by name or SKU" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />
-          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+  <div style={{ ...card, display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr', gap: 8, alignItems: 'center' }}>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+              <IconSearch />
+            </span>
+            <input
+              placeholder="Search by name or SKU"
+              value={q}
+              onChange={e => { setQ(e.target.value); setPage(1); }}
+              style={{ padding: '8px 10px 8px 36px', border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8, width: '100%' }}
+            />
+          </div>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }}>
             <option value="">All statuses</option>
             <option value="active">active</option>
             <option value="inactive">inactive</option>
           </select>
-          <select value={sort} onChange={e => { setSort(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+          <select value={sort} onChange={e => { setSort(e.target.value); setPage(1); }} style={{ padding: 8, border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text)', borderRadius: 8 }}>
             <option value="-createdAt">Newest</option>
             <option value="createdAt">Oldest</option>
             <option value="name">Name A-Z</option>
@@ -227,20 +246,20 @@ export default function ProductManagement() {
       <div style={{ ...card }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>{[
-            140, // SKU
-            null, // Name (flex)
-            140, // Category
-            100, // Price
-            80,  // Stock
-            100, // Status
-            140, // Actions
+            '12%',   // SKU
+            null,    // Name (flex)
+            '14%',   // Category
+            '10%',   // Price
+            '8%',    // Stock
+            '10%',   // Status
+            '12%',   // Actions
           ].map((w, i) => (
             <col key={i} style={w ? { width: w } : undefined} />
           ))}</colgroup>
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
+            <tr style={{ textAlign: 'left', borderBottom: '1px solid #eef2f7' }}>
               <th style={{ padding: 8 }}>SKU</th>
-              <th style={{ padding: 8 }}>Name</th>
+              <th style={{ padding: '8px 8px 8px 14px' }}>Name</th>
               <th style={{ padding: 8 }}>Category</th>
               <th style={{ padding: 8 }}>Price</th>
               <th style={{ padding: 8 }}>Stock</th>
@@ -250,9 +269,9 @@ export default function ProductManagement() {
           </thead>
           <tbody>
             {items.map(it => (
-              <tr key={it._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              <tr key={it._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.sku}</td>
-                <td style={{ padding: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</td>
+                <td style={{ padding: '8px 8px 8px 14px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</td>
                 <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.category}</td>
                 <td style={{ padding: 8 }}>{typeof it.price === 'number' ? it.price.toFixed(2) : it.price}</td>
                 <td style={{ padding: 8, whiteSpace: 'nowrap' }}>{it.stock}</td>
@@ -387,7 +406,7 @@ export default function ProductManagement() {
 
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button type="button" onClick={resetDraft} style={{ background: '#e5e7eb', border: 'none', borderRadius: 8, padding: '8px 12px' }}>Cancel</button>
-                <button type="submit" style={{ background: '#0b1b2b', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 }}>Update</button>
+                <button type="submit" style={{ background: '#10b981', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 12px', fontWeight: 700 }}>Update</button>
               </div>
             </form>
           </div>

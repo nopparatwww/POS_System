@@ -870,6 +870,958 @@ router.post('/check', authenticateToken, ensureWithinShift, async (req, res) => 
 module.exports = router; // export เพื่อให้ server.js นำไปใช้
 ```
 
+### Backend/routes/apiSalesRoutes.js — Sales (สร้าง/ดู/ค้นบิลขาย)
+
+```javascript
+const express = require("express"); // ใช้ Router แยกกลุ่ม sales ชัดเจน
+const router = express.Router(); // Router เฉพาะโมดูลขาย
+const mongoose = require("mongoose"); // ใช้ตรวจ ObjectId และ query เงื่อนไข
+const crypto = require("crypto"); // สุ่มเลขสั้นๆ ใช้ต่อท้ายเลขบิล
+const Sale = require("../models/sale"); // โมเดลบิลขาย
+const Product = require("../models/product"); // โมเดลสินค้า (เพื่อหักสต็อก)
+const authenticateToken = require("../middleware/authMiddleware"); // บังคับ JWT
+const ensurePermission = require("../middleware/ensurePermission"); // ตรวจสิทธิ์เป็นคีย์
+
+// 🔹 robust invoice generator — YYYYMMDD-xxxx (hex)
+function genInvoiceNo() { // สร้างเลขบิลโดยอิงวันที่และเลขสุ่มสั้นๆ
+  const d = new Date(); // วันที่วันนี้
+  const rand = crypto.randomBytes(2).toString("hex"); // สุ่ม 2 ไบต์เป็นเฮ็ก 4 ตัว
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${rand}`; // รูปแบบ YYYYMMDD-xxxx
+}
+
+// 🔸 POST /api/protect/sales — สร้างบิลขายใหม่และตัดสต็อก
+router.post(
+  "/",
+  authenticateToken, // ต้องยืนยันตัวตน
+  // อนุญาตทั้งสิทธิ์ sales.create หรือสิทธิ์รวมของแคชเชียร์ sales.cashier
+  ensurePermission(["sales.create", "sales.cashier"]),
+  async (req, res) => {
+    console.log("Sale POST req.body:", JSON.stringify(req.body, null, 2)); // log สำหรับดีบัก
+    try {
+      const { // รับค่าสรุปการขายจาก FE
+        items = [], // รายการสินค้า [{ productId?, sku?, name, unitPrice, qty }]
+        subtotal = 0, // ยอดย่อย
+        discount = 0, // ส่วนลดรวม
+        vat = 0, // ภาษีมูลค่าเพิ่ม
+        total = 0, // ยอดสุทธิ
+        payment = {}, // ข้อมูลการชำระเงิน
+        paymentIntentId, // เผื่อแนบ id ของ PaymentIntent เพื่อผูกกับ webhook
+      } = req.body;
+
+      if (!Array.isArray(items) || items.length === 0) // ต้องมี item อย่างน้อย 1 รายการ
+        return res.status(400).json({ message: "No items" });
+
+      // 🔹 validate และหักสต็อกตามจำนวนที่ขาย
+      for (const it of items) { // วนตรวจแต่ละรายการ
+        if (it.productId) { // มีการอ้างถึง productId ในระบบสต็อก
+          const p = await Product.findById(it.productId); // ดึงสินค้า
+          if (!p)
+            return res.status(400).json({ message: `Invalid product ${it.name}` }); // ไม่พบสินค้า
+          if (typeof p.stock === "number" && p.stock < (it.qty || 0)) { // สต็อกไม่พอ
+            return res.status(400).json({ message: `Insufficient stock for ${it.name}` });
+          }
+          if (typeof p.stock === "number") { // หักสต็อกแบบลดจำนวน
+            p.stock = p.stock - (it.qty || 0);
+            await p.save(); // เซฟกลับฐานข้อมูล
+          }
+        }
+      }
+
+      // จัดมาตรฐานข้อมูลชำระเงินให้มีโครงสร้างแน่นอน
+      const normalizedPayment = {
+        method: String(req.body.payment?.method || "cash").toLowerCase(), // cash/card/qr/wallet
+        amountReceived: Number(req.body.payment?.amountReceived ?? 0), // ยอดที่รับมา
+        change: Number(req.body.payment?.change ?? 0), // เงินทอน (ถ้ามี)
+        details: req.body.payment?.details || {}, // รายละเอียดอื่น ๆ (เช่น paymentIntentId)
+      };
+      console.log("Normalized payment:", JSON.stringify(normalizedPayment, null, 2)); // log สะดวกดีบัก
+
+      // ตรวจ items ซ้ำอีกครั้ง (กันข้อมูลไม่ครบ)
+      if (!Array.isArray(items) || items.length === 0)
+        return res.status(400).json({ message: "No items" });
+
+      if (!items.every((it) => it.name && it.qty != null && it.unitPrice != null)) { // ต้องมี name/qty/unitPrice ครบ
+        return res.status(400).json({ message: "Invalid items: missing name/qty/unitPrice" });
+      }
+
+      console.log("Creating sale with:", normalizedPayment); // log ก่อนสร้างจริง
+      const sale = await Sale.create({ // บันทึกบิลขาย
+        invoiceNo: genInvoiceNo(), // เลขบิลที่ไม่ซ้ำ
+        createdBy: req.user?.userId, // อ้างผู้สร้างจาก JWT
+        cashierName: req.user?.username || req.user?.name || "unknown", // ชื่อแคชเชียร์
+        items: items.map((it) => ({ // map ฟิลด์ให้แน่นอนเป็นตัวเลข
+          productId: it.productId || null,
+          sku: it.sku || "",
+          name: it.name,
+          unitPrice: Number(it.unitPrice),
+          qty: Number(it.qty),
+          lineTotal: Number(it.unitPrice || 0) * Number(it.qty || 0), // ราคารวมแถว
+        })),
+        subtotal: Number(subtotal),
+        discount: Number(discount),
+        vat: Number(vat),
+        total: Number(total),
+        payment: normalizedPayment, // โครงสร้างชำระเงินมาตรฐาน
+        meta: paymentIntentId ? { paymentIntentId } : undefined, // ผูก intent เพื่อค้นภายหลังได้
+      });
+
+      res.status(201).json({ // ตอบกลับพร้อมข้อมูลสำคัญ
+        saleId: sale._id,
+        invoiceNo: sale.invoiceNo,
+        payment: sale.payment,
+        sale,
+      });
+    } catch (err) {
+      console.error(err); // log เซิร์ฟเวอร์
+      if (err.code === 11000) { // duplicate key (เช่น invoiceNo ซ้ำ)
+        return res.status(409).json({ message: "Duplicate invoice number" });
+      }
+      res.status(500).json({ message: "Server error" }); // ผิดพลาดทั่วไป
+    }
+  }
+);
+
+// GET /api/protect/sales/by-intent/:id — ค้นบิลจาก Stripe PaymentIntent
+router.get(
+  "/by-intent/:id",
+  authenticateToken,
+  ensurePermission("sales.view"), // ต้องมีสิทธิ์ดูบิล
+  async (req, res) => {
+    try {
+      const pid = req.params.id; // intent id จาก URL
+      if (!pid) return res.status(400).json({ message: "Missing intent id" });
+      const sale = await Sale.findOne({ "payment.details.paymentIntentId": pid }) // ค้นในฟิลด์ details
+        .select("invoiceNo createdAt items subtotal discount vat total payment") // เลือกฟิลด์ที่ต้องใช้
+        .lean(); // คืน plain object
+      if (!sale) return res.status(404).json({ message: "Not found" }); // ไม่พบบิล
+      return res.json(sale); // ตอบบิลที่พบ
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔸 GET /api/protect/sales/:id — ดูบิลเดี่ยว (เติม unitPrice/lineTotal หากขาด)
+router.get(
+  "/:id",
+  authenticateToken,
+  ensurePermission("sales.view"),
+  async (req, res) => {
+    try {
+      let sale = await Sale.findById(req.params.id)
+        .select("invoiceNo createdAt items subtotal discount vat total payment") // ฟิลด์จำเป็น
+        .lean();
+      if (!sale) return res.status(404).json({ message: "Not found" }); // ไม่พบ
+      // เติมข้อมูลราคาต่อหน่วยกรณีอดีตมีแต่ lineTotal หรือข้อมูลขาด
+      if (Array.isArray(sale.items) && sale.items.length > 0) {
+        const enriched = await Promise.all(
+          sale.items.map(async (it) => {
+            const qty = Number(it.qty) || 0; // จำนวนชิ้น
+            let unit = undefined; // ราคาต่อหน่วยที่จะคำนวณ
+            if (it.unitPrice != null && !isNaN(it.unitPrice)) unit = Number(it.unitPrice); // ใช้ unitPrice ที่มี
+            else if (it.lineTotal != null && qty > 0) unit = Number(it.lineTotal) / qty; // ย้อนกลับจาก lineTotal
+            if ((unit == null || isNaN(unit)) && it.productId) { // ถ้ายังไม่มี ลองดึงราคาสินค้า
+              try {
+                const p = await Product.findById(it.productId).select("price").lean(); // ขอเฉพาะ price
+                if (p && p.price != null && !isNaN(p.price)) unit = Number(p.price);
+              } catch (e) { /* ignore */ }
+            }
+            if (unit == null || isNaN(unit)) unit = 0; // กัน NaN
+            const lineTotal = unit * qty; // คิดใหม่ตาม unit
+            return { ...it, unitPrice: unit, lineTotal }; // คืนแถวที่เติมข้อมูลแล้ว
+          })
+        );
+        sale = { ...sale, items: enriched }; // แทนที่รายการเดิมด้วยรายการ enrich
+      }
+      res.json(sale); // ส่งคืน
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔸 GET /api/protect/sales — ค้น/แบ่งหน้า
+router.get(
+  "/",
+  authenticateToken,
+  ensurePermission("sales.view"),
+  async (req, res) => {
+    try {
+      const { receipt, product, from, to, query: q, page = 1, limit = 25 } = req.query; // พารามิเตอร์ค้นหา
+      const query = {}; // สร้าง criteria ทีละส่วน
+
+      // 🔹 receipt: ค้น invoiceNo หรือ _id
+      if (receipt) {
+        if (mongoose.isValidObjectId(receipt)) { // ถ้าเป็น ObjectId ก็ลองจับคู่ทั้ง 2 แบบ
+          query.$or = [
+            { invoiceNo: { $regex: receipt, $options: "i" } },
+            { _id: mongoose.Types.ObjectId(receipt) },
+          ];
+        } else { // ถ้าไม่ใช่ ObjectId ให้ค้นเฉพาะ invoiceNo
+          query.invoiceNo = { $regex: receipt, $options: "i" };
+        }
+      }
+
+      // 🔹 product name (ค้นในรายการสินค้าของบิล)
+      if (product) {
+        query.items = { $elemMatch: { name: { $regex: product, $options: "i" } } };
+      }
+
+      // 🔹 query ทั่วไป (q)
+      if (q) {
+        query.$or = [
+          { invoiceNo: { $regex: q, $options: "i" } },
+          { "payment.method": { $regex: q, $options: "i" } },
+          { "items.name": { $regex: q, $options: "i" } },
+        ];
+      }
+
+      // 🔹 กรองช่วงวันที่
+      if (from || to) {
+        query.createdAt = {};
+        if (from) query.createdAt.$gte = new Date(from); // เริ่มต้น
+        if (to) { // จบบวกเวลาเป็น 23:59:59.999 ของวันนั้น
+          const toDate = new Date(to);
+          toDate.setHours(23, 59, 59, 999);
+          query.createdAt.$lte = toDate;
+        }
+      }
+
+      const skip = (Number(page) - 1) * Number(limit); // เพจเนชัน
+      const [rows, total] = await Promise.all([
+        Sale.find(query)
+          .sort({ createdAt: -1 }) // ใหม่สุดก่อน
+          .skip(skip)
+          .limit(Number(limit))
+          .select("invoiceNo createdAt total payment cashierName")
+          .lean(),
+        Sale.countDocuments(query), // นับทั้งหมดเพื่อคำนวณจำนวนหน้า
+      ]);
+
+      res.json({ rows, total, page: Number(page), limit: Number(limit) }); // ส่งข้อมูลกลับ
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+module.exports = router; // ส่งออก Router ให้ server.js นำไปใช้
+```
+
+### Backend/routes/apiPaymentsRoutes.js — Payments (Stripe: PromptPay/Card)
+
+```javascript
+const express = require("express"); // Router สำหรับการชำระเงิน
+const router = express.Router(); // แยก concerns ชัดเจน
+const authenticateToken = require("../middleware/authMiddleware"); // ต้องมี JWT
+const ensurePermission = require("../middleware/ensurePermission"); // ตรวจสิทธิ์ sales.create/sales.view ตามจุด
+require("dotenv").config(); // โหลด env เพื่อเข้าถึงคีย์ Stripe
+
+// lazy init Stripe — ให้แอปบูตได้แม้ยังไม่ตั้งคีย์ (จะล้มเฉพาะตอนเรียก endpoint นี้)
+let stripe = null; // cache instance ไว้ใช้ซ้ำ
+function getStripe() { // คืน client ของ Stripe
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY; // คีย์ลับฝั่งเซิร์ฟเวอร์
+    if (!key) throw new Error("STRIPE_SECRET_KEY missing in environment"); // ถ้าไม่ตั้ง ให้โยน error
+    stripe = require("stripe")(key); // สร้าง client ตามคีย์
+  }
+  return stripe; // คืน client
+}
+
+// Helper แปลงยอดหน่วยบาท (ทศนิยม) เป็นสตางค์ (int) ตามที่ Stripe ต้องการ
+function parseAmountToSatang(amount) {
+  const num = Number(amount || 0); // แปลงเป็นตัวเลข
+  return Math.round(num * 100); // คูณ 100 ปัดเป็นจำนวนเต็ม
+}
+
+// POST /api/protect/payments/promptpay-intent — สร้าง PaymentIntent สำหรับ PromptPay (QR)
+router.post(
+  "/promptpay-intent",
+  authenticateToken, // ต้องยืนยันตัวตน
+  ensurePermission("sales.create"), // ต้องมีสิทธิ์สร้างบิล/การชำระเงิน
+  async (req, res) => {
+    try {
+      const { total, invoiceNo, metadata = {}, draft } = req.body; // รับยอด/เลขบิล/metadata/ร่างบิล
+      console.log("[payments] promptpay-intent body:", req.body); // log ดีบัก
+      const amt = Number(total); // แปลงเป็นตัวเลข
+      if (!Number.isFinite(amt) || amt <= 0) { // ตรวจความถูกต้อง
+        return res.status(400).json({ message: "total must be a positive number" });
+      }
+      const stripeClient = getStripe(); // client Stripe
+      const intent = await stripeClient.paymentIntents.create({ // สร้าง PaymentIntent
+        amount: parseAmountToSatang(amt), // จำนวนเงินหน่วยสตางค์
+        currency: "thb", // สกุลเงินไทยบาท
+        payment_method_types: ["promptpay"], // ประเภทการชำระเงิน: PromptPay QR
+        description: `POS Sale ${invoiceNo || ""}`, // คำอธิบาย
+        metadata: { // เก็บข้อมูลช่วยเหลือภายหลัง
+          invoiceNo: invoiceNo || "",
+          userId: req.user?.userId || "",
+          ...metadata,
+        },
+      });
+
+      // บันทึกร่างบิลลง PendingPayment เพื่อให้ webhook มาสร้างบิลทีหลัง (optional)
+      if (draft && typeof draft === "object") { // guard draft เป็นอ็อบเจ็กต์
+        try {
+          const PendingPayment = require("../models/pendingPayment"); // โหลดโมเดลเท่าที่ใช้
+          await PendingPayment.create({ // สร้างเอกสารคอย webhook
+            paymentIntentId: intent.id,
+            method: "qr", // promptpay
+            saleDraft: { // เก็บข้อมูลจำเป็นพอสร้างบิล
+              items: Array.isArray(draft.items) ? draft.items : [],
+              subtotal: draft.subtotal,
+              discount: draft.discount,
+              vat: draft.vat,
+              total: draft.total,
+            },
+            createdBy: req.user?.userId,
+            cashierName: req.user?.username || req.user?.name || "unknown",
+            meta: { invoiceNo: invoiceNo || "" },
+          });
+        } catch (persistErr) {
+          console.error("Failed to persist PendingPayment draft", persistErr); // เก็บแค่ log ไม่ fail flow
+        }
+      }
+      res.json({ // ส่งข้อมูลไปให้ FE ใช้แสดง QR
+        clientSecret: intent.client_secret,
+        paymentIntentId: intent.id,
+        status: intent.status,
+      });
+    } catch (err) {
+      console.error("[payments] PromptPay intent error:", err?.message, err?.type || "", err); // log เพิ่มรายละเอียด
+      const code = err?.raw?.code || err?.code; // โค้ดจาก Stripe
+      const type = err?.type || err?.rawType; // ประเภทความผิดพลาด
+      res.status(500).json({ message: "Stripe error", error: err.message, code, type }); // ตอบ 500 พร้อมรายละเอียดปลอดภัย
+    }
+  }
+);
+
+// POST /api/protect/payments/card-intent — สร้าง PaymentIntent สำหรับบัตร
+router.post(
+  "/card-intent",
+  authenticateToken,
+  ensurePermission("sales.create"),
+  async (req, res) => {
+    try {
+      const { total, invoiceNo, metadata = {}, draft } = req.body; // รับค่าเหมือน promptpay
+      console.log("[payments] card-intent body:", req.body);
+      const amt = Number(total);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return res.status(400).json({ message: "total must be a positive number" });
+      }
+      const stripeClient = getStripe();
+      const intent = await stripeClient.paymentIntents.create({
+        amount: parseAmountToSatang(amt),
+        currency: "thb",
+        payment_method_types: ["card"], // ประเภทบัตร
+        description: `POS Sale ${invoiceNo || ""}`,
+        metadata: { invoiceNo: invoiceNo || "", userId: req.user?.userId || "", ...metadata },
+      });
+
+      if (draft && typeof draft === "object") { // เก็บร่างบิลสำหรับ webhook เช่นเดียวกับ promptpay
+        try {
+          const PendingPayment = require("../models/pendingPayment");
+          await PendingPayment.create({
+            paymentIntentId: intent.id,
+            method: "card",
+            saleDraft: {
+              items: Array.isArray(draft.items) ? draft.items : [],
+              subtotal: draft.subtotal,
+              discount: draft.discount,
+              vat: draft.vat,
+              total: draft.total,
+            },
+            createdBy: req.user?.userId,
+            cashierName: req.user?.username || req.user?.name || "unknown",
+            meta: { invoiceNo: invoiceNo || "" },
+          });
+        } catch (persistErr) {
+          console.error("Failed to persist PendingPayment draft (card)", persistErr);
+        }
+      }
+      res.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, status: intent.status }); // ตอบข้อมูลที่ FE ต้องใช้
+    } catch (err) {
+      console.error("[payments] Card intent error:", err?.message, err?.type || "", err);
+      const code = err?.raw?.code || err?.code;
+      const type = err?.type || err?.rawType;
+      res.status(500).json({ message: "Stripe error", error: err.message, code, type });
+    }
+  }
+);
+
+// GET /api/protect/payments/intent/:id — polling สถานะ intent (สำรองจาก webhook)
+router.get(
+  "/intent/:id",
+  authenticateToken,
+  ensurePermission("sales.view"),
+  async (req, res) => {
+    try {
+      const stripeClient = getStripe(); // client Stripe
+      const intent = await stripeClient.paymentIntents.retrieve(req.params.id); // ดึงสถานะล่าสุด
+      res.json({ // ตอบกลับข้อมูลที่จำเป็น
+        id: intent.id,
+        amount: intent.amount,
+        currency: intent.currency,
+        status: intent.status,
+        metadata: intent.metadata,
+      });
+    } catch (err) {
+      console.error("Retrieve intent error:", err);
+      res.status(500).json({ message: "Stripe error", error: err.message });
+    }
+  }
+);
+
+module.exports = router; // ส่งออก Router
+```
+
+### Backend/routes/stripeWebhook.js — Stripe Webhook (สร้างบิลอัตโนมัติ)
+
+```javascript
+const express = require("express"); // ใช้สำหรับสร้าง router ถ้าต้องการ mount เพิ่ม
+const router = express.Router(); // (ในไฟล์นี้เรา export handler แยกต่างหาก)
+const crypto = require("crypto"); // สร้างเลขบิลแบบสุ่มสั้น
+const Sale = require("../models/sale"); // โมเดลบิลขาย
+const Product = require("../models/product"); // โมเดลสินค้าเพื่อหักสต็อก
+const PendingPayment = require("../models/pendingPayment"); // เก็บร่างบิลก่อนชำระจริง
+require("dotenv").config(); // อ่าน env สำหรับ Stripe keys
+
+let stripe = null; // cache client stripe
+function getStripe() { // คืน client stripe จากคีย์ลับ
+  if (!stripe) {
+    const key = process.env.STRIPE_SECRET_KEY; // คีย์เซิร์ฟเวอร์
+    if (!key) throw new Error("STRIPE_SECRET_KEY missing in environment");
+    stripe = require("stripe")(key);
+  }
+  return stripe;
+}
+
+function genInvoiceNo() { // ตัวช่วยสร้างเลขบิล
+  const d = new Date();
+  const rand = crypto.randomBytes(2).toString("hex");
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${rand}`;
+}
+
+async function createSaleFromPending(intent) { // สร้างบิลขายจาก PendingPayment ตาม intent ที่สำเร็จ
+  const paymentIntentId = intent.id; // อ้าง id ของ intent
+  const existing = await Sale.findOne({ "payment.details.paymentIntentId": paymentIntentId }).lean(); // กันซ้ำ (idempotent)
+  if (existing) return existing; // ถ้ามีแล้ว คืนทันที
+
+  const pending = await PendingPayment.findOne({ paymentIntentId }); // หาเอกสารร่างบิล
+  if (!pending || !pending.saleDraft || !Array.isArray(pending.saleDraft.items) || pending.saleDraft.items.length === 0) {
+    throw new Error("Pending draft not found or invalid for intent " + paymentIntentId); // ขาดข้อมูล จำเป็นให้ Stripe retry
+  }
+
+  // ตรวจและหักสต็อกแบบเดียวกับฝั่ง API sales
+  for (const it of pending.saleDraft.items) {
+    if (it.productId) {
+      const p = await Product.findById(it.productId);
+      if (!p) throw new Error(`Invalid product ${it.name}`);
+      if (typeof p.stock === "number" && p.stock < (it.qty || 0)) {
+        throw new Error(`Insufficient stock for ${it.name}`);
+      }
+      if (typeof p.stock === "number") {
+        p.stock = p.stock - (it.qty || 0);
+        await p.save();
+      }
+    }
+  }
+
+  const sale = await Sale.create({ // บันทึกบิลเมื่อชำระสำเร็จ
+    invoiceNo: genInvoiceNo(),
+    createdBy: pending.createdBy || null,
+    cashierName: pending.cashierName || "unknown",
+    items: pending.saleDraft.items.map((it) => ({
+      productId: it.productId || null,
+      sku: it.sku || "",
+      name: it.name,
+      unitPrice: Number(it.unitPrice || 0),
+      qty: Number(it.qty || 0),
+      lineTotal: Number(it.unitPrice || 0) * Number(it.qty || 0),
+    })),
+    subtotal: Number(pending.saleDraft.subtotal || 0),
+    discount: Number(pending.saleDraft.discount || 0),
+    vat: Number(pending.saleDraft.vat || 0),
+    total: Number(pending.saleDraft.total || 0),
+    payment: { // ระบุรายละเอียดการชำระเงินจริงที่เกิดจาก intent
+      method: pending.method || "qr",
+      amountReceived: Number(pending.saleDraft.total || 0),
+      change: 0,
+      details: { paymentIntentId: paymentIntentId, intentStatus: intent.status },
+    },
+  });
+
+  pending.status = "processed"; // อัปเดตสถานะ Draft ว่าถูกสร้างบิลแล้ว
+  pending.processedAt = new Date(); // เวลาประมวลผล
+  await pending.save(); // เซฟกลับ
+
+  return sale; // คืนเอกสารบิล
+}
+
+// handler สำหรับ mount ใน server.js ด้วย express.raw({ type: 'application/json' })
+async function stripeWebhookHandler(req, res) { // รับ webhook จาก Stripe
+  try {
+    const sig = req.headers["stripe-signature"]; // ลายเซ็นตรวจสอบความถูกต้อง
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET; // คีย์ลับของ webhook
+    if (!webhookSecret) { // ถ้าไม่ตั้งค่า ให้ปฏิเสธทันที
+      console.warn("STRIPE_WEBHOOK_SECRET not set; rejecting webhook");
+      return res.status(400).send("webhook secret not configured");
+    }
+
+    const stripeClient = getStripe(); // client Stripe
+    let event; // ตัวแปรเก็บ event ที่ตรวจสอบแล้ว
+    try {
+      event = stripeClient.webhooks.constructEvent(req.body, sig, webhookSecret); // ตรวจลายเซ็นท์กับ raw body
+    } catch (err) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`); // ล้มเหลว -> ให้ Stripe retry
+    }
+
+    switch (event.type) { // แยกประเภทเหตุการณ์ที่สนใจ
+      case "payment_intent.succeeded": { // จ่ายสำเร็จ
+        const intent = event.data.object; // ตัว intent จริง
+        try {
+          await createSaleFromPending(intent); // สร้างบิลจากร่างที่ถูกบันทึกไว้
+          return res.json({ received: true }); // ตอบ 200 เพื่อบอกว่าได้รับแล้ว
+        } catch (e) {
+          console.error("Failed to create sale from webhook:", e);
+          return res.status(400).json({ error: e.message }); // 400 เพื่อให้ Stripe retry อัตโนมัติ
+        }
+      }
+      case "payment_intent.processing": { // อยู่ระหว่างประมวลผล
+        try {
+          const intent = event.data.object;
+          await PendingPayment.updateOne({ paymentIntentId: intent.id }, { $set: { status: "pending" } }); // ขีดเส้นว่าอยู่ระหว่างทาง
+        } catch (e) { /* ignore */ }
+        return res.json({ received: true });
+      }
+      case "payment_intent.payment_failed": { // ชำระล้มเหลว
+        try {
+          const intent = event.data.object;
+          await PendingPayment.updateOne({ paymentIntentId: intent.id }, { $set: { status: "failed" } }); // ทำเครื่องหมายล้มเหลว
+        } catch (e) { /* ignore */ }
+        return res.json({ received: true });
+      }
+      default: // เหตุการณ์อื่นตอบรับเฉย ๆ
+        return res.json({ received: true });
+    }
+  } catch (err) {
+    console.error("Unexpected webhook error:", err); // ข้อผิดพลาดไม่คาดคิด
+    return res.status(500).send("Server error"); // แจ้ง 500
+  }
+}
+
+module.exports = { stripeWebhookHandler }; // ส่งออก handler เพื่อนำไป mount ใน server.js
+```
+
+### Backend/routes/apiRefundRoutes.js — Refunds (คืนสินค้า/เงิน)
+
+```javascript
+const express = require("express"); // Router คืนสินค้า/เงิน
+const router = express.Router(); // แยก concerns
+const Refund = require("../models/refund"); // โมเดล Refund
+const authenticateToken = require("../middleware/authMiddleware"); // JWT
+const ensurePermission = require("../middleware/ensurePermission"); // ตรวจสิทธิ์
+
+// 🔸 POST /api/protect/refunds — สร้างเอกสารคืนสินค้า/เงิน
+router.post(
+  "/",
+  authenticateToken,
+  ensurePermission("refunds.create"), // ต้องมีสิทธิ์สร้าง refund
+  async (req, res) => {
+    try {
+      const { saleId, invoiceNo, items = [] } = req.body; // ต้องมีใบขาย/เลขบิลและรายการที่จะคืน
+
+      if (!saleId || !invoiceNo || items.length === 0) { // ตรวจบังคับ
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const totalRefund = items.reduce( // คำนวณยอดคืนรวมจากรายการ
+        (sum, it) => sum + Number(it.unitPrice || 0) * Number(it.returnQty || 0),
+        0
+      );
+
+      const refund = await Refund.create({ // สร้างเอกสารคืน
+        saleId,
+        invoiceNo,
+        refundedBy: req.user?.userId, // ผู้ดำเนินการคืน
+        items: items
+          .filter((it) => Number(it.returnQty) > 0) // เอาเฉพาะแถวที่มีคืนจริง
+          .map((it) => ({ // จัดรูปฟิลด์
+            productId: it.productId,
+            name: it.name,
+            unitPrice: Number(it.unitPrice),
+            originalQty: Number(it.originalQty),
+            returnQty: Number(it.returnQty),
+            reason: it.reason,
+            lineRefund: Number(it.unitPrice || 0) * Number(it.returnQty || 0),
+          })),
+        totalRefund, // สรุปรวม
+      });
+
+      res.status(201).json({ // ตอบพร้อมคืนเอกสาร
+        message: "Refund created successfully",
+        refundId: refund._id,
+        refund,
+      });
+    } catch (err) {
+      console.error("Refund POST error:", err);
+      if (err?.name === "ValidationError") { // รูปแบบข้อมูลไม่ผ่าน validator ของ Mongoose
+        const details = Object.values(err.errors || {}).map((e) => e.message); // ดึงข้อความผิดพลาดรายฟิลด์
+        return res.status(400).json({ message: "Validation failed", details });
+      }
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔸 GET /api/protect/refunds — ประวัติการคืน (ค้น/แบ่งหน้า)
+router.get(
+  "/",
+  authenticateToken,
+  ensurePermission("refunds.view"),
+  async (req, res) => {
+    try {
+      const { page = 1, limit = 25, search = "", startDate, endDate } = req.query; // พารามิเตอร์ค้นหา
+      const skip = (Number(page) - 1) * Number(limit); // เพจเนชัน
+
+      const query = {}; // เงื่อนไขค้นหา
+      if (search) { // ค้นทั้งเลขบิลและชื่อสินค้าในรายการคืน
+        query.$or = [
+          { invoiceNo: { $regex: search, $options: "i" } },
+          { "items.name": { $regex: search, $options: "i" } },
+        ];
+      }
+      if (startDate && endDate) { // กรองช่วงเวลา
+        query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+      }
+
+      const [rows, total] = await Promise.all([
+        Refund.find(query)
+          .sort({ createdAt: -1 }) // ใหม่ก่อน
+          .skip(skip)
+          .limit(Number(limit))
+          .select("invoiceNo totalRefund createdAt refundedBy") // ฟิลด์จำเป็นสำหรับรายการ
+          .populate("refundedBy", "username name") // เติมชื่อผู้คืน
+          .lean(),
+        Refund.countDocuments(query), // นับทั้งหมด
+      ]);
+
+      res.json({ rows, total, page: Number(page), limit: Number(limit) }); // ตอบข้อมูลสำหรับ UI
+    } catch (err) {
+      console.error("Refund GET error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// 🔸 GET /api/protect/refunds/:id — รายละเอียดคืนเดี่ยว
+router.get(
+  "/:id",
+  authenticateToken,
+  ensurePermission("refunds.view"),
+  async (req, res) => {
+    try {
+      const refund = await Refund.findById(req.params.id)
+        .populate("refundedBy", "username name") // เติมชื่อผู้คืน
+        .populate("items.productId", "name price") // เติมชื่อ/ราคาเดิมของสินค้า
+        .populate("saleId", "invoiceNo total") // เติมข้อมูลบิลเดิมหากต้องการ
+        .lean();
+      if (!refund) return res.status(404).json({ message: "Not found" }); // ไม่พบ
+      res.json(refund); // ตอบคืนเอกสารเต็ม
+    } catch (err) {
+      console.error("Refund GET/:id error:", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+module.exports = router; // ส่งออก Router
+```
+
+### Backend/routes/apiStockRoutes.js — สต็อก (รับเข้า/เบิกออก/ตรวจนับ)
+
+```javascript
+const express = require("express"); // Router บริหารสต็อก
+const router = express.Router(); // แยก concerns
+const Product = require("../models/product"); // โมเดลสินค้า
+const StockInLog = require("../models/stockInLog"); // Log รับเข้า
+const StockOutLog = require("../models/stockOutLog"); // Log เบิกออก
+const StockAuditLog = require("../models/stockAuditLog"); // Log ตรวจนับ
+const ActivityLog = require("../models/activityLog"); // กิจกรรมกลาง
+const authenticateToken = require("../middleware/authMiddleware"); // JWT
+const ensurePermission = require("../middleware/ensurePermission"); // คีย์สิทธิ์
+const ensureWithinShift = require("../middleware/ensureWithinShift"); // ตรวจช่วงเวลางาน
+const mongoose = require('mongoose'); // ตรวจ ObjectId
+
+const STOCK_IN_PERMISSION = ["admin.stockin", "warehouse.stockin"]; // คีย์ที่อนุญาตรับเข้า
+const STOCK_OUT_PERMISSION = ["admin.stockout", "warehouse.stockout"]; // คีย์ที่อนุญาตเบิกออก
+const STOCK_AUDIT_PERMISSION = ["admin.audit", "warehouse.audit"]; // คีย์ที่อนุญาตตรวจนับ
+
+// POST /api/protect/stock/in — บันทึกรับสินค้าเข้า (เพิ่มสต็อก)
+router.post(
+  "/in",
+  authenticateToken,
+  ensureWithinShift,
+  ensurePermission(STOCK_IN_PERMISSION),
+  async (req, res) => {
+    try {
+      const { productId, quantity } = req.body; // รับ id สินค้าและจำนวนที่รับเข้า
+      const { username, role } = req.user; // จาก JWT
+      const numQty = parseFloat(quantity); // แปลงเป็นตัวเลข
+
+      if (!productId || !quantity || isNaN(numQty) || numQty <= 0) { // ตรวจอินพุต
+        return res.status(400).json({ message: "productId และ quantity (ตัวเลข > 0) เป็นฟิลด์บังคับ" });
+      }
+      if (!mongoose.Types.ObjectId.isValid(productId)) { // กัน CastError
+        return res.status(400).json({ message: 'Invalid productId format' });
+      }
+
+      const updatedProduct = await Product.findByIdAndUpdate( // เพิ่มสต็อกแบบ atomic
+        productId,
+        { $inc: { stock: numQty } }, // เพิ่มจำนวน
+        { new: true, runValidators: true }
+      );
+      if (!updatedProduct) { // ไม่พบสินค้า
+        return res.status(404).json({ message: "ไม่พบสินค้า (Product)" });
+      }
+
+      const stockLog = await StockInLog.create({ // บันทึก log รับเข้า
+        product: updatedProduct._id,
+        productName: updatedProduct.name,
+        sku: updatedProduct.sku,
+        quantity: numQty, // จำนวนที่เพิ่ม (Delta)
+        actorUsername: username,
+      });
+
+      try { // สร้าง ActivityLog กลางเพื่อใช้รวมรายงาน
+        const { logActivity } = require("../utils/activityLogger");
+        await logActivity(req, "stock.in", 201, { productId: updatedProduct._id, sku: updatedProduct.sku, quantity: numQty, newStock: updatedProduct.stock });
+      } catch (logErr) { console.error("Failed to create activity log for stock.in:", logErr); }
+
+      res.status(201).json(stockLog); // ตอบ log ที่สร้าง
+    } catch (e) {
+      console.error("Stock In Error:", e);
+      res.status(500).json({ message: "Server error during stock in." });
+    }
+  }
+);
+
+// GET /api/protect/stock/in/logs — ประวัติรับเข้าแบบแบ่งหน้า
+router.get(
+  "/in/logs",
+  authenticateToken,
+  ensureWithinShift,
+  ensurePermission(STOCK_IN_PERMISSION),
+  async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1); // เลขหน้า
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10)); // จำกัดจำนวน
+      const criteria = {}; // เงื่อนไขค้นหา (เผื่ออนาคต)
+      const total = await StockInLog.countDocuments(criteria); // นับทั้งหมด
+
+      const logs = await StockInLog.find(criteria) // ค้นจริงตามหน้า
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate("product", "name sku")
+        .lean();
+
+      res.json({ page, limit, total, items: logs }); // ตอบข้อมูลพร้อมเพจเนชัน
+    } catch (e) {
+      console.error("Get Stock Logs Error:", e);
+      res.status(500).json({ message: "Server error fetching stock logs." });
+    }
+  }
+);
+
+// POST /api/protect/stock/out — เบิกออก (ลดสต็อก)
+router.post(
+  "/out",
+  authenticateToken,
+  ensureWithinShift,
+  ensurePermission(STOCK_OUT_PERMISSION),
+  async (req, res) => {
+    try {
+      const { productId, quantity, reason } = req.body; // รับสินค้าที่ต้องเบิก/จำนวน/เหตุผล
+      const { username, role } = req.user; // ผู้กระทำ
+
+      if (!productId || !quantity || !reason) { // ตรวจอินพุต
+        return res.status(400).json({ message: "productId, quantity, และ reason เป็นฟิลด์บังคับ" });
+      }
+      const numQty = parseFloat(quantity);
+      if (isNaN(numQty) || numQty <= 0) { // ต้องเป็นจำนวนบวก
+        return res.status(400).json({ message: "Quantity (จำนวน) ต้องเป็นบวก" });
+      }
+      if (typeof reason !== "string" || reason.trim().length === 0) { // ต้องมีเหตุผลไม่ว่าง
+        return res.status(400).json({ message: "Reason (เหตุผล) ห้ามว่าง" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(productId)) { // กัน CastError
+        return res.status(400).json({ message: 'Invalid productId format' });
+      }
+      const product = await Product.findById(productId); // ค้นสินค้า
+      if (!product) { // ไม่พบสินค้า
+        return res.status(404).json({ message: "ไม่พบสินค้า (Product) ที่ระบุ" });
+      }
+
+      if (product.stock < numQty) { // ตรวจสต็อกพอหรือไม่
+        return res.status(400).json({ message: `ไม่สามารถเบิกออกได้ สต็อกไม่พอ (มี ${product.stock} เบิก ${numQty})`, code: "INSUFFICIENT_STOCK" });
+      }
+
+      const updatedProduct = await Product.findByIdAndUpdate( // ลดสต็อกแบบ atomic
+        productId,
+        { $inc: { stock: -numQty } },
+        { new: true, runValidators: true }
+      );
+
+      const stockLog = await StockOutLog.create({ // log การเบิกออก
+        product: updatedProduct._id,
+        productName: updatedProduct.name,
+        sku: updatedProduct.sku,
+        quantity: numQty,
+        reason: reason.trim(),
+        actorUsername: username,
+      });
+
+      try { // ActivityLog กลาง
+        const { logActivity } = require("../utils/activityLogger");
+        await logActivity(req, "stock.out", 201, { productId: updatedProduct._id, sku: updatedProduct.sku, quantity: numQty, reason: reason.trim(), newStock: updatedProduct.stock });
+      } catch (logErr) { console.error("Failed to create activity log for stock.out:", logErr); }
+
+      res.status(201).json(stockLog); // ตอบสำเร็จ
+    } catch (e) {
+      console.error("Stock Out Error:", e);
+      res.status(500).json({ message: "Server error during stock out." });
+    }
+  }
+);
+
+// GET /api/protect/stock/out/logs — ประวัติการเบิกออกแบบแบ่งหน้า
+router.get(
+  "/out/logs",
+  authenticateToken,
+  ensureWithinShift,
+  ensurePermission(STOCK_OUT_PERMISSION),
+  async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+      const criteria = {};
+      const total = await StockOutLog.countDocuments(criteria);
+
+      const logs = await StockOutLog.find(criteria)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate("product", "name sku")
+        .lean();
+
+      res.json({ page, limit, total, items: logs });
+    } catch (e) {
+      console.error("Get Stock Out Logs Error:", e);
+      res.status(500).json({ message: "Server error fetching stock out logs." });
+    }
+  }
+);
+
+// POST /api/protect/stock/audit — ตรวจนับ (ตั้งค่า stock เท่าของจริงและบันทึก diff)
+router.post(
+  "/audit",
+  authenticateToken,
+  ensureWithinShift,
+  ensurePermission(STOCK_AUDIT_PERMISSION),
+  async (req, res) => {
+    try {
+      const { productId, actualStock } = req.body; // จำนวนจริงที่นับได้
+      const { username, role } = req.user; // ผู้กระทำ
+      const numActual = parseFloat(actualStock);
+      if (!productId || isNaN(numActual) || numActual < 0) { // ตรวจอินพุต
+        return res.status(400).json({ message: "productId และ actualStock (ตัวเลข >= 0) เป็นฟิลด์บังคับ" });
+      }
+      if (!mongoose.Types.ObjectId.isValid(productId)) { // กัน CastError
+        return res.status(400).json({ message: 'Invalid productId format' });
+      }
+      const product = await Product.findById(productId); // ค้นสินค้า
+      if (!product) { // ไม่พบ
+        return res.status(404).json({ message: "ไม่พบสินค้า (Product)" });
+      }
+      const systemStock = product.stock; // สต็อกเดิมในระบบ
+      const difference = numActual - systemStock; // ผลต่าง (delta)
+
+      product.stock = numActual; // เซ็ตเป็นค่าจริงที่นับได้
+      await product.save(); // เซฟกลับ
+
+      const auditLog = await StockAuditLog.create({ // สร้าง log ตรวจนับ
+        product: product._id,
+        productName: product.name,
+        sku: product.sku,
+        systemStock: systemStock,
+        actualStock: numActual,
+        quantity: difference, // บันทึก delta
+        actorUsername: username,
+      });
+
+      try { // ActivityLog กลาง
+        const { logActivity } = require("../utils/activityLogger");
+        await logActivity(req, "stock.audit", 201, { productId: product._id, sku: product.sku, systemStock, actualStock: numActual, difference });
+      } catch (logErr) { console.error("Failed to create activity log for stock.audit:", logErr); }
+
+      res.status(201).json(auditLog); // ตอบ log ที่สร้าง
+    } catch (e) {
+      console.error("Stock Audit Error:", e);
+      res.status(500).json({ message: "Server error during stock audit." });
+    }
+  }
+);
+
+module.exports = router; // ส่งออก Router
+```
+
+### Backend/routes/apiDiscountsRoutes.js — ส่วนลด (ตัวอย่างง่าย)
+
+```javascript
+const express = require('express'); // Router ส่วนลดอย่างง่าย
+const router = express.Router(); // แยก concerns ชัดเจน
+const Discount = require('../models/discount'); // โมเดลส่วนลด
+
+router.get('/', async (req, res) => { // ดึงรายการส่วนลดทั้งหมด
+  try {
+    const discounts = await Discount.find(); // ค้นหมด
+    res.json(discounts); // ตอบรายการ
+  } catch (err) {
+    res.status(500).json({ message: err.message }); // ผิดพลาดทั่วไป
+  }
+});
+
+// add discount — ตัวอย่างสร้างส่วนลดอย่างง่าย (ยังไม่ผูกสิทธิ์/validation ลึก)
+router.post('/', async (req, res) => { // สร้างส่วนลดใหม่จาก body payload
+  try {
+    const d = new Discount(req.body); // รับทั้งก้อน (ระวังในโปรดักชันควร validate เพิ่ม)
+    await d.save(); // บันทึก
+    res.status(201).json(d); // ตอบเอกสารที่สร้าง
+  } catch (err) {
+    res.status(400).json({ message: err.message }); // รูปแบบไม่ถูกต้อง
+  }
+});
+
+module.exports = router; // ส่งออก Router
+```
+
+---
+
+หมายเหตุสรุปการติดตั้ง Webhook ใน server.js
+- ต้อง mount เส้นทาง `app.post('/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler)` ก่อน `app.use(bodyParser.json())` เพื่อคง raw body ไว้ตรวจลายเซ็น
+- ตั้งค่า `STRIPE_SECRET_KEY` และ `STRIPE_WEBHOOK_SECRET` ในสภาพแวดล้อมจริง
+- ฝั่ง Frontend เมื่อใช้ PromptPay/Card intent ควรแสดงสถานะและ fallback polling `/api/protect/payments/intent/:id` เมื่อยังไม่ได้ตั้ง webhook
+
+---
+
+ถ้าต้องการให้ผมเพิ่มเติมส่วน Frontend (เช่น Cashier scanner flow, หน้า Sales/Refund history) ในรูปแบบ “คอมเมนต์บรรทัดต่อบรรทัด” เพิ่มเติม แจ้งไฟล์ที่ต้องการได้ทันที ผมจะขยายในเอกสารนี้ต่อเนื่องให้ครับ
+
 ### Backend/routes/apiProtectRoutes.js — Protected APIs (Users, Logs)
 
 ```javascript
