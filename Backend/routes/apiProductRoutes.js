@@ -50,7 +50,7 @@ function pickBody(b = {}) {
 
 // GET /api/protect/products
 // Supports pagination, text search (by name/sku), status filter and simple sort
-router.get('/', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
+router.get('/', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products', 'sales.products']), async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
@@ -175,7 +175,7 @@ router.get('/lowstock-robust', authenticateToken, async (req, res) => {
 
 // GET /api/protect/products/:id
 // Return single product by id
-router.get('/:id', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products']), async (req, res) => {
+router.get('/:id', authenticateToken, ensureWithinShift, ensurePermission(['admin.products', 'warehouse.products', 'sales.products']), async (req, res) => {
   try {
     const prod = await Product.findById(req.params.id).lean()
     if (!prod) return res.status(404).json({ message: 'Not found' })

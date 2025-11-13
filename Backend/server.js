@@ -6,6 +6,8 @@ require("dotenv").config();
 
 // connect to DB (file sets up mongoose connection)
 require("./config/db");
+// Models used directly in this file
+const Product = require("./models/product");
 
 // Route modules
 const apiAuthRoutes = require("./routes/apiAuthRoutes");

@@ -117,6 +117,30 @@ router.post(
   }
 );
 
+// Extra endpoint: lookup sale by Stripe PaymentIntent ID
+// GET /api/protect/sales/by-intent/:id
+router.get(
+  "/by-intent/:id",
+  authenticateToken,
+  ensurePermission("sales.view"),
+  async (req, res) => {
+    try {
+      const pid = req.params.id;
+      if (!pid) return res.status(400).json({ message: "Missing intent id" });
+      const sale = await Sale.findOne({
+        "payment.details.paymentIntentId": pid,
+      })
+        .select("invoiceNo createdAt items subtotal discount vat total payment")
+        .lean();
+      if (!sale) return res.status(404).json({ message: "Not found" });
+      return res.json(sale);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
 // 🔸 GET /api/protect/sales/:id
 router.get(
   "/:id",
@@ -243,27 +267,3 @@ router.get(
 );
 
 module.exports = router;
-
-// Extra endpoint: lookup sale by Stripe PaymentIntent ID
-// GET /api/protect/sales/by-intent/:id
-router.get(
-  "/by-intent/:id",
-  authenticateToken,
-  ensurePermission("sales.view"),
-  async (req, res) => {
-    try {
-      const pid = req.params.id;
-      if (!pid) return res.status(400).json({ message: "Missing intent id" });
-      const sale = await Sale.findOne({
-        "payment.details.paymentIntentId": pid,
-      })
-        .select("invoiceNo createdAt items subtotal discount vat total payment")
-        .lean();
-      if (!sale) return res.status(404).json({ message: "Not found" });
-      return res.json(sale);
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Server error" });
-    }
-  }
-);

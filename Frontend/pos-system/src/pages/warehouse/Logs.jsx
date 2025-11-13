@@ -49,16 +49,32 @@ export default function WarehouseLogsPage() {
   useEffect(() => {
     const ids = new Set()
     const idToSku = {}
+    const idToName = {}
     items.forEach(it => {
       const d = it.details || {}
       if (d.productId) {
         const id = String(d.productId)
         ids.add(id)
         if (d.sku) idToSku[id] = d.sku
-        if (d.productName && !idToSku[id]) idToSku[id] = d.productName
+        if (d.productName) idToName[id] = d.productName
       }
     })
-    const toFetch = Array.from(ids).filter(id => !productMap[id])
+    const isMongoId = (s) => /^[0-9a-fA-F]{24}$/.test(String(s))
+
+    // Pre-fill map with info already present in logs to avoid unnecessary network calls (and 404 noise)
+    const withLocalInfo = Array.from(ids).filter(id => (idToSku[id] || idToName[id]))
+    if (withLocalInfo.length > 0) {
+      setProductMap(pm => {
+        const next = { ...pm }
+        withLocalInfo.forEach(id => {
+          if (!next[id]) next[id] = { sku: idToSku[id] || null, name: idToName[id] || null, derived: true }
+        })
+        return next
+      })
+    }
+
+    // Only fetch true ObjectIds that we don't already know or have filled locally
+    const toFetch = Array.from(ids).filter(id => !productMap[id] && !withLocalInfo.includes(id) && isMongoId(id))
     if (toFetch.length === 0) return
     let mounted = true
     ;(async () => {
@@ -75,7 +91,7 @@ export default function WarehouseLogsPage() {
                 if (p._id) next[String(p._id)] = { name: p.name, sku: p.sku }
               } else {
                 // If fetch failed (404 or other), store a sentinel so UI can show 'Deleted product'
-                next[String(id)] = { missing: true, sku: idToSku[id] || null }
+                next[String(id)] = { missing: true, sku: idToSku[id] || null, name: idToName[id] || null }
               }
             })
           return next

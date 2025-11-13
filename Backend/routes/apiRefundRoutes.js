@@ -48,6 +48,11 @@ router.post(
       });
     } catch (err) {
       console.error("Refund POST error:", err);
+      if (err?.name === "ValidationError") {
+        // Flatten Mongoose validation messages
+        const details = Object.values(err.errors || {}).map((e) => e.message);
+        return res.status(400).json({ message: "Validation failed", details });
+      }
       res.status(500).json({ message: "Server error" });
     }
   }

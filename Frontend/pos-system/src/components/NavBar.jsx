@@ -155,14 +155,18 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('admin.dashboard') && <MenuLink to="/admin/dashboard">Dashboard</MenuLink>}
               {isAllowed('admin.permissions') && <MenuLink to="/admin/permissions">Permissions</MenuLink>}
               {isAllowed('admin.products') && <MenuLink to="/admin/products">Products</MenuLink>}
-              {/* Single unified Logs view (use filters inside the page). Show when user has any logs-related permission */}
-              {(isAllowed('admin.logs') || isAllowed('admin.logs.all') || isAllowed('admin.logs.admin') || isAllowed('admin.logs.cashier') || isAllowed('admin.logs.warehouse')) && <MenuLink to="/admin/logs">Logs</MenuLink>}
+              {/* Single unified Logs view */}
+              {isAllowed('admin.logs') && <MenuLink to="/admin/logs">Logs</MenuLink>}
             </>
           )}
 
           {mode === 'sales' && (
             <>
               {isAllowed('sales.home') && <MenuLink to="/sales">Sales Home</MenuLink>}
+              {isAllowed('sales.cashier') && <MenuLink to="/sales/cashier">Cashier</MenuLink>}
+              {isAllowed('sales.view') && <MenuLink to="/sales/history">Sales History</MenuLink>}
+              {isAllowed('refunds.create') && <MenuLink to="/sales/refund">Refund</MenuLink>}
+              {isAllowed('refunds.view') && <MenuLink to="/sales/refund/history">Refund History</MenuLink>}
               {isAllowed('sales.logs') && <MenuLink to="/sales/logs">Logs</MenuLink>}
             </>
           )}
@@ -175,7 +179,6 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
               {isAllowed('warehouse.stockout') && <MenuLink to="/warehouse/stockout">Stock Out</MenuLink>}
               {isAllowed('warehouse.stockaudit') && <MenuLink to="/warehouse/stockaudit">Stock Audit</MenuLink>}
               {isAllowed('warehouse.lowstock') && <MenuLink to="/warehouse/lowstock">Low Stock Alert</MenuLink>}
-              {isAllowed('warehouse.audit') && <MenuLink to="/warehouse/audit">Stock Audit</MenuLink>}
               {isAllowed('warehouse.reports') && <MenuLink to="/warehouse/reports">Reports</MenuLink>}
               {isAllowed('warehouse.logs') && <MenuLink to="/warehouse/logs">Logs</MenuLink>}
             </>

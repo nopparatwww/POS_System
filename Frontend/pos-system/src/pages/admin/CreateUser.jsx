@@ -22,20 +22,36 @@ export default function CreateUser() {
   const [saving, setSaving] = useState(false)
   const [isNarrow, setIsNarrow] = useState(false)
 
-  // Define available route keys with friendly labels (same as other pages)
+  // Define available route keys with friendly labels (page-level only)
   const ROUTE_OPTIONS = [
+    // Admin
     { key: 'admin.dashboard', label: 'Admin: Dashboard' },
     { key: 'admin.permissions', label: 'Admin: Permissions' },
-    { key: 'admin.logs', label: 'Admin: Logs' },
+    { key: 'admin.products', label: 'Admin: Products' },
+    { key: 'admin.logs', label: 'Admin: Logs (all)' },
+    // Sales
     { key: 'sales.home', label: 'Sales: Home' },
+    { key: 'sales.cashier', label: 'Sales: Cashier' },
+    { key: 'sales.view', label: 'Sales: History' },
+  { key: 'sales.logs', label: 'Sales: Logs' },
+  { key: 'refunds.create', label: 'Sales: Refund' },
+  { key: 'refunds.view', label: 'Sales: Refund History' },
+    // Warehouse
     { key: 'warehouse.home', label: 'Warehouse: Home' },
+    { key: 'warehouse.products', label: 'Warehouse: Products' },
+    { key: 'warehouse.stockin', label: 'Warehouse: Stock In' },
+    { key: 'warehouse.stockout', label: 'Warehouse: Stock Out' },
+    { key: 'warehouse.stockaudit', label: 'Warehouse: Stock Audit' },
+    { key: 'warehouse.lowstock', label: 'Warehouse: Low Stock' },
+    { key: 'warehouse.reports', label: 'Warehouse: Reports' },
+    { key: 'warehouse.logs', label: 'Warehouse: Logs' },
   ]
 
   // Role baseline defaults
   const roleBaseline = useMemo(() => ({
-    admin: ['admin.dashboard', 'admin.permissions', 'admin.logs'],
-    cashier: ['sales.home'],
-    warehouse: ['warehouse.home'],
+    admin: ['admin.dashboard', 'admin.permissions', 'admin.products', 'admin.logs'],
+    cashier: ['sales.home','sales.cashier','sales.view','refunds.create','refunds.view'],
+    warehouse: ['warehouse.home','warehouse.products','warehouse.stockin','warehouse.stockout','warehouse.stockaudit','warehouse.lowstock','warehouse.reports','warehouse.logs'],
   }), [])
 
   const [allowRoutes, setAllowRoutes] = useState(roleBaseline['cashier'])

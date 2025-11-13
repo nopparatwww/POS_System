@@ -4,16 +4,19 @@ import { useNavigate, useParams } from 'react-router-dom'
 
 // Define available route keys with friendly labels
 const ROUTE_OPTIONS = [
+  // Admin
   { key: 'admin.dashboard', label: 'Admin: Dashboard' },
   { key: 'admin.permissions', label: 'Admin: Permissions' },
-  // Split logs into fine-grained permissions
-  { key: 'admin.logs.all', label: 'Admin: Logs (All)' },
-  { key: 'admin.logs.admin', label: 'Admin: Logs - Admin' },
-  { key: 'admin.logs.cashier', label: 'Admin: Logs - Cashier' },
-  { key: 'admin.logs.warehouse', label: 'Admin: Logs - Warehouse' },
   { key: 'admin.products', label: 'Admin: Products' },
+  { key: 'admin.logs', label: 'Admin: Logs' },
+  // Sales
   { key: 'sales.home', label: 'Sales: Home' },
+  { key: 'sales.cashier', label: 'Sales: Cashier' },
+  { key: 'sales.view', label: 'Sales: History' },
   { key: 'sales.logs', label: 'Sales: Logs' },
+  { key: 'refunds.create', label: 'Sales: Refund' },
+  { key: 'refunds.view', label: 'Sales: Refund History' },
+  // Warehouse
   { key: 'warehouse.home', label: 'Warehouse: Home' },
   { key: 'warehouse.products', label: 'Warehouse: Products' },
   { key: 'warehouse.stockin', label: 'Warehouse: Stock In' },

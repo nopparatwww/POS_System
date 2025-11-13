@@ -113,4 +113,16 @@ router.post("/login", loginRateLimiter, async (req, res) => {
   }
 });
 
+// Stateless JWT logout endpoint (optional)
+// Since JWT is stateless, we simply respond 204 and let the client delete its token.
+// Provided mainly to avoid 404 noise and to record an activity log.
+router.post('/logout', async (req, res) => {
+  try {
+    try { const { logActivity } = require('../utils/activityLogger'); await logActivity(req, 'auth.logout', 204, {}); } catch (e) { /* ignore logging errors */ }
+    return res.status(204).send();
+  } catch (e) {
+    return res.status(204).send();
+  }
+});
+
 module.exports = router;

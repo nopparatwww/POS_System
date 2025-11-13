@@ -1,2 +1,10 @@
-/* Intentionally minimal. Project currently uses inline styles. */
+/* Tailwind CSS setup for utility classes used across pages */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App-specific tweaks can go below */
+html, body, #root {
+	height: 100%;
+}
 

@@ -23,6 +23,10 @@ import ProtectedRoute from "./components/ProtectedRoute";
 // previous: import Home from "./pages/Home";
 import Warehouse from "./pages/Warehouse";
 import Sales from "./pages/Sales";
+import CashierPage from "./pages/sales/Cashier";
+import SalesHistory from "./pages/sales/SalesHistory";
+import Refund from "./pages/sales/Refund";
+import RefundHistory from "./pages/sales/RefundHistory";
 // previous: import Users from "./pages/Users";
 import Admin from "./pages/Admin";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -59,7 +63,12 @@ export default function App() {
           <Route path="/warehouse/audit" element={<ProtectedRoute><WarehouseStockAudit /></ProtectedRoute>} />
           <Route path="/warehouse/reports" element={<ProtectedRoute><WarehouseInventoryReports /></ProtectedRoute>} />
           <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
+          <Route path="/sales/cashier" element={<ProtectedRoute><CashierPage /></ProtectedRoute>} />
+          <Route path="/sales/history" element={<ProtectedRoute><SalesHistory /></ProtectedRoute>} />
           <Route path="/sales/logs" element={<ProtectedRoute><SalesLogsPage /></ProtectedRoute>} />
+          {/* Refund pages under Sales */}
+          <Route path="/sales/refund/history" element={<ProtectedRoute><RefundHistory /></ProtectedRoute>} />
+          <Route path="/sales/refund" element={<ProtectedRoute><Refund /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />

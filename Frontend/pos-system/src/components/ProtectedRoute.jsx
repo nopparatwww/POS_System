@@ -18,12 +18,19 @@ import { Navigate, useLocation } from 'react-router-dom'
 const PATH_TO_KEY = [
   { path: /^\/admin\/dashboard$/, key: 'admin.dashboard' },
   { path: /^\/admin\/permissions(?:\/.*)?$/, key: 'admin.permissions' },
-  // Fine-grained logs
-  { path: /^\/admin\/logs\/all$/, key: 'admin.logs.all' },
-  { path: /^\/admin\/logs\/admin$/, key: 'admin.logs.admin' },
-  { path: /^\/admin\/logs\/cashier$/, key: 'admin.logs.cashier' },
-  { path: /^\/admin\/logs\/warehouse$/, key: 'admin.logs.warehouse' },
+  // Admin logs single page
+  { path: /^\/admin\/logs(?:\/.*)?$/, key: 'admin.logs' },
   { path: /^\/admin\/products(?:\/.*)?$/, key: 'admin.products' },
+  // Sales: specific routes before generic
+  { path: /^\/sales\/cashier(?:\/.*)?$/, key: 'sales.cashier' },
+  { path: /^\/sales\/logs(?:\/.*)?$/, key: 'sales.logs' },
+  { path: /^\/sales\/history(?:\/.*)?$/, key: 'sales.view' },
+  // Refunds under sales
+  { path: /^\/sales\/refund\/history(?:\/.*)?$/, key: 'refunds.view' },
+  { path: /^\/sales\/refund(?:\/.*)?$/, key: 'refunds.create' },
+  { path: /^\/sales\/products(?:\/.*)?$/, key: 'sales.products' },
+  { path: /^\/sales\/create(?:\/.*)?$/, key: 'sales.create' },
+  { path: /^\/sales\/view(?:\/.*)?$/, key: 'sales.view' },
   { path: /^\/sales(?:\/.*)?$/, key: 'sales.home' },
   { path: /^\/warehouse(?:\/.*)?$/, key: 'warehouse.home' },
   { path: /^\/warehouse\/products(?:\/.*)?$/, key: 'warehouse.products' },
@@ -31,6 +38,8 @@ const PATH_TO_KEY = [
   { path: /^\/warehouse\/stockout(?:\/.*)?$/, key: 'warehouse.stockout' },
   { path: /^\/warehouse\/lowstock(?:\/.*)?$/, key: 'warehouse.lowstock' },
   { path: /^\/warehouse\/stockaudit(?:\/.*)?$/, key: 'warehouse.stockaudit' },
+  { path: /^\/warehouse\/reports(?:\/.*)?$/, key: 'warehouse.reports' },
+  { path: /^\/warehouse\/logs(?:\/.*)?$/, key: 'warehouse.logs' },
 ]
 
 function pathToKey(pathname) {
