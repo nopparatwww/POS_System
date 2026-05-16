@@ -1,7 +1,7 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const cors = require("cors");
 const ipWhitelist = require("./middleware/ipWhitelist");
+const authenticateToken = require("./middleware/authMiddleware");
 // Load environment variables from Backend/.env regardless of CWD
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
@@ -37,7 +37,7 @@ app.set('etag', false);
 app.disable('x-powered-by');
 
 // Parse incoming JSON bodies (application/json)
-app.use(bodyParser.json());
+app.use(express.json());
 
 // ---- CORS Configuration ----
 // Allow only origins defined in CORS_ORIGINS (comma separated). If empty => allow all.
@@ -82,7 +82,7 @@ app.get("/", (req, res) => {
   res.send("JWT API is running");
 });
 
-app.get("/api/products/search", async (req, res) => {
+app.get("/api/products/search", authenticateToken, async (req, res) => {
   const term = req.query.term;
   const regex = new RegExp(term, "i");
   const results = await Product.find({

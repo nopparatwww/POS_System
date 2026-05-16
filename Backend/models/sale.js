@@ -39,8 +39,11 @@ const SaleSchema = new mongoose.Schema({
     enum: ["completed", "refunded"],
     default: "completed",
   },
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now, index: true },
   meta: mongoose.Schema.Types.Mixed,
 });
+
+SaleSchema.index({ createdAt: 1 });
+SaleSchema.index({ createdBy: 1 });
 
 module.exports = mongoose.models.Sale || mongoose.model("Sale", SaleSchema);

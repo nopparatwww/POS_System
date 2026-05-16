@@ -13,12 +13,15 @@ const productSchema = new mongoose.Schema(
     barcode: { type: String },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     reorderLevel: { type: Number, default: 5 },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
   },
   { timestamps: true }
 );
 
-// Helpful index for search
+// Helpful indexes for frequent queries
+productSchema.index({ barcode: 1 });
+productSchema.index({ createdAt: 1 });
+productSchema.index({ createdBy: 1 });
 productSchema.index({ name: "text", sku: "text" });
 
 module.exports = mongoose.model("Product", productSchema);

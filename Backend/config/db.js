@@ -37,8 +37,6 @@ if (!process.env.MONGODB_URI && !process.env.MONGO_URI) {
 mongoose
   .connect(MONGO_CONN_URI, {
     // These options are safe defaults for Atlas and local
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     serverSelectionTimeoutMS: 10000, // faster fail when URI/whitelist is wrong
   })
   .then(() => {
