@@ -39,7 +39,7 @@ const SaleSchema = new mongoose.Schema({
     enum: ["completed", "refunded"],
     default: "completed",
   },
-  createdAt: { type: Date, default: Date.now, index: true },
+  createdAt: { type: Date, default: Date.now },
   meta: mongoose.Schema.Types.Mixed,
 });
 

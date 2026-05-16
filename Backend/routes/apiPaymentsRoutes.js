@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
 const ensurePermission = require("../middleware/ensurePermission");
-require("dotenv").config();
 
 // Lazy init stripe; allow backend to run even if key missing (will error when endpoint used)
 let stripe = null;

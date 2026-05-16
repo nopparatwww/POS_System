@@ -4,7 +4,6 @@ const crypto = require("crypto");
 const Sale = require("../models/sale");
 const Product = require("../models/product");
 const PendingPayment = require("../models/pendingPayment");
-require("dotenv").config();
 
 let stripe = null;
 function getStripe() {

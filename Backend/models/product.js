@@ -13,7 +13,7 @@ const productSchema = new mongoose.Schema(
     barcode: { type: String },
     status: { type: String, enum: ["active", "inactive"], default: "active" },
     reorderLevel: { type: Number, default: 5 },
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
