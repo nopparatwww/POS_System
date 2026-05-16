@@ -36,12 +36,53 @@ JWT_SECRET=เปลี่ยนเป็นค่าสุ่มยาวๆ
 JWT_EXPIRES_IN=1h
 BCRYPT_ROUNDS=12
 PASSWORD_PEPPER=
+CORS_ORIGINS=https://pos-system-ex2d.onrender.com
+ALLOWED_IPS=
 ```
 
 - `JWT_SECRET`: ต้องเก็บลับสุดยอด — ใช้ secret manager ใน production
 - `JWT_EXPIRES_IN`: รูปแบบเช่น `15m`, `1h` หรือจำนวนวินาที
 - `BCRYPT_ROUNDS`: ค่า cost factor ของ bcrypt (ค่าแนะนำ >= 10-12)
 - `PASSWORD_PEPPER`: ค่าสำหรับ concat ก่อน hash (optional) — เก็บใน secret manager
+- `CORS_ORIGINS`: รายการ origin (scheme + host + optional port) ที่อนุญาต เช่น `https://pos-system-ex2d.onrender.com,https://admin.example.com` เว้นว่าง = อนุญาตทั้งหมด (เฉพาะ dev)
+- `ALLOWED_IPS`: รายการ IP (IPv4/IPv6 mapped) ที่อนุญาตให้เรียก API ได้ (ใช้ middleware whitelist) เว้นว่าง = อนุญาตทั้งหมด
+ - `LOG_IP_WHITELIST`: ตั้ง `1` (ค่าเริ่มต้น) เพื่อบันทึกทุก request (allow/block) ลง activity log หรือ console, ตั้ง `0` เพื่อปิด
+ - `ACTIVE_USER_WINDOW_MINUTES`: ระยะเวลา (นาที) สำหรับการคำนวณจำนวนผู้ใช้ที่ "active" บน Dashboard (ค่าเริ่มต้น 15)
+
+### การทำงานของ CORS กับ IP Whitelist
+1. CORS จำกัดเฉพาะ browser origins — ถ้า origin ไม่อยู่ใน `CORS_ORIGINS` จะถูกบล็อคด้วย error `CORS: Origin not allowed`.
+2. IP Whitelist ตรวจ IP ต้นทาง (อ่านจาก `X-Forwarded-For` เมื่ออยู่หลัง proxy) ถ้าไม่ตรงกับ `ALLOWED_IPS` จะตอบ `403 Forbidden`.
+3. ถ้าต้องการทดสอบให้คงค่าเว้นว่างระหว่างพัฒนา แล้วค่อยเติมค่า origins/IPs ตอน deploy.
+4. สามารถเปิด/ปิดการ log ของ whitelist ด้วย `LOG_IP_WHITELIST`
+
+Edge cases:
+- Proxy หลายชั้น: `X-Forwarded-For` อาจเป็นลิสต์คอมมา แรกสุดคือ client เดิม
+- IPv6 mapped IPv4 (เช่น `::ffff:127.0.0.1`) ระบบจะ normalize ให้อัตโนมัติ
+- หาก Render/Cloudflare เปลี่ยน header จะต้องตรวจ policy เฉพาะผู้ให้บริการ
+ - Logging: action key จะเป็น `ip.allow` หรือ `ip.block` (status 200 / 403)
+
+คำแนะนำ production:
+- กำหนด IP ของ reverse proxy/load balancer ชัดเจนถ้าใช้ layer เพิ่มเติม
+- ใช้ WAF / security group เพื่อ enforce ซ้ำที่ network layer
+- จัดทำระบบ monitoring สำหรับการ attempt จาก IP ที่ไม่ได้อยู่ใน whitelist
+ - วิเคราะห์สถิติ block rate เพื่อปรับปรุง security rules
+
+### ทำไม IP Whitelist ดีกว่าการล็อคด้วย CORS เพียงอย่างเดียว?
+### Active Users Metric
+ระบบจะอัปเดต `lastActive` ของผู้ใช้ทุกครั้งที่มีการเรียก endpoint ที่ตรวจสอบ JWT สำเร็จ (ใน `authMiddleware`).
+Admin สามารถเรียก `GET /api/protect/metrics/active-users?windowMinutes=15` เพื่อดูจำนวนผู้ใช้ที่มี lastActive ภายใน 15 นาทีล่าสุด พร้อมรายชื่อสูงสุด 50 คน.
+ปรับค่าเริ่มต้นด้วยตัวแปร `ACTIVE_USER_WINDOW_MINUTES` หรือ query param เพื่อเปลี่ยนช่วงเวลา.
+
+| ประเด็น | CORS อย่างเดียว | CORS + IP Whitelist |
+|---------|-----------------|--------------------|
+| ป้องกัน non-browser clients (curl/Postman) | ไม่ | ได้ (403) |
+| ลด attack surface (credential stuffing / brute force จากบอท) | จำกัดเฉพาะ browser | ลดทั้ง browser และสคริปต์ตรง |
+| บันทึก forensic (ว่า IP ไหนพยายามเรียก) | ต้องเพิ่มเอง | มีใน middleware (ip.allow / ip.block) |
+| Defense-in-depth | ต่ำ | สูงขึ้น (Layer 7 + origin + IP) |
+| รองรับ zero-trust / allow known offices | ไม่ | ได้ |
+| ต้าน bypass ผ่าน custom header / origin spoof | ไม่ (บาง client spoof origin) | ใช้ network identity (IP) ยากขึ้น |
+
+สรุป: CORS ปกป้องเฉพาะกรณี frontend browser ปกติ แต่ไม่กันการยิงตรง API. IP Whitelist เพิ่มชั้นควบคุมจริงที่เซิร์ฟเวอร์และให้ข้อมูล log สำหรับวิเคราะห์ภัยคุกคาม.
 
 ---
 

@@ -306,6 +306,27 @@ export default function Dashboard(){
   const [series, setSeries] = useState({ labels: [], values: [] });
   const [seriesLoading, setSeriesLoading] = useState(false);
   const [seriesError, setSeriesError] = useState(null);
+  // Active user metric
+  const [activeUsers, setActiveUsers] = useState({ activeUserCount: 0, windowMinutes: 15, users: [] });
+
+  // Poll active users every 30s
+  useEffect(() => {
+    let mounted = true;
+    let timer;
+    const fetchActive = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/protect/metrics/active-users`);
+        if (!mounted) return;
+        setActiveUsers(res.data);
+      } catch (e) {
+        if (!mounted) return;
+        // silent fail
+      }
+    };
+    fetchActive();
+    timer = setInterval(fetchActive, 30000);
+    return () => { mounted = false; if (timer) clearInterval(timer); };
+  }, [API_BASE]);
 
   // Load main blocks (summary, popular, lowstock) and keep on screen to avoid flicker
   useEffect(() => {
@@ -417,7 +438,7 @@ export default function Dashboard(){
           <SectionHeader
             icon={<IconUsers />}
             title="Total Employees"
-            right={<Pill bg="#ecfdf5" color="#065f46">Active Now: {staffStats.activeWithinShiftNow || 0}</Pill>}
+            right={<Pill bg="#ecfdf5" color="#065f46">Active ({activeUsers.windowMinutes}m): {activeUsers.activeUserCount || 0}</Pill>}
           />
 
           {/* Total number */}

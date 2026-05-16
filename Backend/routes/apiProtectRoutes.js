@@ -8,12 +8,29 @@ const ActivityLog = require("../models/activityLog");
 const ensurePermission = require("../middleware/ensurePermission");
 const Permission = require("../models/permission");
 
-// Protected route example
+// Protected route example (basic welcome)
 router.get("/dashboard", authenticateToken, ensureWithinShift, (req, res) => {
   res.json({
     message: "Welcome to the protected dashboard",
     user: req.user,
   });
+});
+
+// Active users metric (admin only)
+// Returns count of users whose lastActive falls within windowMinutes (default 15)
+router.get('/metrics/active-users', authenticateToken, ensureAdmin, async (req, res) => {
+  try {
+    const windowMinutes = Math.max(1, parseInt(req.query.windowMinutes, 10) || parseInt(process.env.ACTIVE_USER_WINDOW_MINUTES, 10) || 15);
+    const since = new Date(Date.now() - windowMinutes * 60000);
+    const criteria = { lastActive: { $gte: since } };
+    const count = await User.countDocuments(criteria);
+    // Optionally return a lightweight list of usernames (capped at 50)
+    const users = await User.find(criteria).sort({ lastActive: -1 }).limit(50).select('username role lastActive').lean();
+    res.json({ windowMinutes, since: since.toISOString(), activeUserCount: count, users });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;

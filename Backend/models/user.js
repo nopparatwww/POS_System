@@ -32,6 +32,8 @@ const userSchema = new mongoose.Schema(
     // Simple shift window for attendance / scheduling (HH:mm strings)
     shiftStart: { type: String },
     shiftEnd: { type: String },
+    // lastActive: updated on each authenticated request (for active user metrics)
+    lastActive: { type: Date, index: true },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

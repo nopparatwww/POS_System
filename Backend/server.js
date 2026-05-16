@@ -1,8 +1,10 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-// Load environment variables from .env into process.env
-require("dotenv").config();
+const ipWhitelist = require("./middleware/ipWhitelist");
+// Load environment variables from Backend/.env regardless of CWD
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 // connect to DB (file sets up mongoose connection)
 require("./config/db");
@@ -25,6 +27,8 @@ const apiPaymentsRoutes = require("./routes/apiPaymentsRoutes");
 const { stripeWebhookHandler } = require("./routes/stripeWebhook");
 
 const app = express();
+// Trust proxy to ensure req.ip reflects client IP when behind Render / reverse proxy
+app.set('trust proxy', true);
 
 // Disable ETag to prevent 304 Not Modified caching on JSON API responses
 // This ensures clients always receive fresh bodies (important for auth/permission checks)
@@ -32,17 +36,44 @@ app.set('etag', false);
 // Hide Express signature
 app.disable('x-powered-by');
 
+// Parse incoming JSON bodies (application/json)
+app.use(bodyParser.json());
+
+// ---- CORS Configuration ----
+// Allow only origins defined in CORS_ORIGINS (comma separated). If empty => allow all.
+const allowedOrigins = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Non-browser or same-origin requests may have no origin; allow them.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS: Origin not allowed"));
+    },
+    credentials: true,
+  })
+);
+
+// ---- IP Whitelist ----
+// Comma separated list of IPs. If empty => allow all.
+const allowedIps = (process.env.ALLOWED_IPS || "")
+  .split(",")
+  .map(i => i.trim())
+  .filter(Boolean);
+app.use(ipWhitelist(allowedIps));
+
+// Stripe webhook (raw body required) – still protected by whitelist & CORS above
 app.post(
   "/stripe/webhook",
   express.raw({ type: "application/json" }),
   stripeWebhookHandler
 );
-
-// Parse incoming JSON bodies (application/json)
-app.use(bodyParser.json());
-
-// Enable CORS for all origins (in production restrict origin list)
-app.use(cors());
 
 
 // Health / default route
@@ -89,4 +120,23 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  if (allowedOrigins.length) {
+    console.log("CORS allowed origins:", allowedOrigins.join(", "));
+  } else {
+    console.log("CORS allowing all origins (no CORS_ORIGINS set)");
+  }
+  if (allowedIps.length) {
+    console.log("IP whitelist active:", allowedIps.join(", "));
+  } else {
+    console.log("IP whitelist disabled (no ALLOWED_IPS set)");
+  }
+});
+
+// Basic error handler for CORS errors and others
+// (Enhance later with centralized logging if needed)
+app.use((err, req, res, next) => {
+  if (err.message && err.message.startsWith("CORS")) {
+    return res.status(403).json({ message: err.message });
+  }
+  next(err);
 });
