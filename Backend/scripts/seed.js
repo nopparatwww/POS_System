@@ -85,7 +85,7 @@ async function main(){
   // Leave allowRoutes empty for baseline permissions per role (see ensurePermission)
   const admin = await upsertUser({
     username: 'admin',
-    password: process.env.ADMIN_DEFAULT_PASS || '123456',
+    password: process.env.ADMIN_DEFAULT_PASS || 'admin29',
     role: 'admin',
     notes: 'seed: admin baseline',
     profile: { firstName: 'System', lastName: 'Admin', email: 'admin@example.com' }
@@ -93,7 +93,7 @@ async function main(){
 
   const admin2 = await upsertUser({
     username: 'admin_2',
-    password: process.env.ADMIN2_DEFAULT_PASS || '123456',
+    password: process.env.ADMIN2_DEFAULT_PASS || 'admin29',
     role: 'admin',
     notes: 'seed: admin baseline 2',
     profile: { firstName: 'Backup', lastName: 'Admin' }

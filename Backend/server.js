@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const ipWhitelist = require("./middleware/ipWhitelist");
 const authenticateToken = require("./middleware/authMiddleware");
@@ -8,6 +9,16 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 // connect to DB (file sets up mongoose connection)
 require("./config/db");
+const { ensureDefaultAdmin } = require("./utils/ensureDefaultAdmin");
+
+const db = mongoose.connection;
+if (db.readyState === 1) {
+  ensureDefaultAdmin().catch((err) => console.error(err));
+} else {
+  db.once("open", () => {
+    ensureDefaultAdmin().catch((err) => console.error(err));
+  });
+}
 // Models used directly in this file
 const Product = require("./models/product");
 
