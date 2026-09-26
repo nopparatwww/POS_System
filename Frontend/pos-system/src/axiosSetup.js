@@ -12,14 +12,14 @@ axios.interceptors.request.use((config) => {
   return config
 })
 
-// Optional: Handle 401 by clearing token to avoid loops and allow clean login
+// A normal 403 means this account lacks a permission, not that its login expired.
 axios.interceptors.response.use(
   (res) => res,
   (error) => {
     const status = error?.response?.status
     const code = error?.response?.data?.code
     const url = error?.config?.url || ''
-    if (status === 401 || status === 403) {
+    if (status === 401 || (status === 403 && code === 'SHIFT_OUTSIDE')) {
       try { localStorage.removeItem('api_token') } catch {}
       // If shift ended
       if (code === 'SHIFT_OUTSIDE') {

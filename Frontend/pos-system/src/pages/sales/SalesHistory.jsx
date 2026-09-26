@@ -27,7 +27,7 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const code = error?.response?.data?.code;
     const url = error?.config?.url || "";
-    if (status === 401 || status === 403) {
+    if (status === 401 || (status === 403 && code === "SHIFT_OUTSIDE")) {
       try { localStorage.removeItem("api_token"); } catch {}
       if (code === "SHIFT_OUTSIDE") {
         try {
