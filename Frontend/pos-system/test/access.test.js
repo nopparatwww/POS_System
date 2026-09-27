@@ -26,6 +26,15 @@ test('allow-only access respects explicit denies', () => {
   assert.equal(canAccessRoute({}, 'sales.home'), false)
 })
 
+test('denied cashier permission stays hidden while sales home remains available', () => {
+  const permissions = {
+    allowRoutes: ['sales.home', 'sales.cashier'],
+    denyRoutes: ['sales.cashier'],
+  }
+  assert.equal(canAccessRoute(permissions, 'sales.home'), true)
+  assert.equal(canAccessRoute(permissions, 'sales.cashier'), false)
+})
+
 test('denied permissions and server role restrict the role switcher', () => {
   const permissions = {
     allowRoutes: ['sales.home', 'admin.dashboard', 'warehouse.home'],
