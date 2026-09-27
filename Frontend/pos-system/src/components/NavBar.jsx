@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from 'axios'
 import { Link } from "react-router-dom";
 import LogoutButton from "./LogoutButton";
+import { canAccessRoute } from '../utils/access'
 
 // Left vertical NavBar with menu links.
 export default function NavBar({ username, serverRole, showLinks = true, mode = 'admin', horizontal = false }) {
@@ -66,11 +67,8 @@ export default function NavBar({ username, serverRole, showLinks = true, mode = 
     return () => clearInterval(t)
   }, [])
 
-  const isAllowed = useMemo(() => {
-    // Allow-only policy: only items listed in allowRoutes are visible
-    const allow = new Set(perm.allowRoutes || [])
-    return (key) => allow.has(key)
-  }, [perm.allowRoutes])
+  // Use the same allow/deny rule as ProtectedRoute so denied links stay hidden.
+  const isAllowed = (key) => canAccessRoute(perm, key)
 
   // small helper to render menu links with hover effect
   function MenuLink({ to, children }) {
